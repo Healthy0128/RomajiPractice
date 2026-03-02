@@ -20,6 +20,14 @@
     }
   }
 
+  function updateViewportHeightVar() {
+    if (typeof window === 'undefined' || typeof document === 'undefined') return;
+    const root = document.documentElement;
+    if (!root) return;
+    const vh = window.innerHeight * 0.01;
+    root.style.setProperty('--vh', vh + 'px');
+  }
+
   function updateOrientation() {
     if (typeof window === 'undefined') return;
     const root = document.documentElement;
@@ -28,6 +36,14 @@
     const h = window.innerHeight || root.clientHeight || 1;
     const orientation = w >= h ? 'landscape' : 'portrait';
     root.setAttribute('data-orientation', orientation);
+
+    // ビューポート高さ変数を更新（iOS Safari のアドレスバー伸縮対策）
+    updateViewportHeightVar();
+
+    // キャンバスレイアウトも安全に再同期
+    if (typeof Draw !== 'undefined' && typeof Draw.syncCanvasToWrap === 'function') {
+      Draw.syncCanvasToWrap();
+    }
   }
 
   function bindOrientation() {

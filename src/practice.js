@@ -9,6 +9,66 @@
   let currentKana = 'あ';
   let practiceBound = false;
 
+  // 文字ごとの達成状況（localStorage 保存用）
+  // progressMap: { [kana: string]: { bestScore: number, lastScore: number, updatedAt: number } }
+  const PROGRESS_KEY = 'progress_v1';
+  let progressMap = null;
+
+  function ensureProgressLoaded() {
+    if (progressMap != null) return;
+    try {
+      const raw = (typeof localStorage !== 'undefined') ? localStorage.getItem(PROGRESS_KEY) : null;
+      progressMap = raw ? JSON.parse(raw) || {} : {};
+    } catch (e) {
+      progressMap = {};
+    }
+  }
+
+  function saveProgress() {
+    if (typeof localStorage === 'undefined' || !progressMap) return;
+    try {
+      localStorage.setItem(PROGRESS_KEY, JSON.stringify(progressMap));
+    } catch (e) {
+      // ignore
+    }
+  }
+
+  function applyProgressStyles(btn, kana) {
+    if (!btn || !kana) return;
+    ensureProgressLoaded();
+    btn.classList.remove('achieved80', 'achieved90');
+    const rec = progressMap[kana];
+    if (!rec || typeof rec.bestScore !== 'number') return;
+    if (rec.bestScore >= 80) btn.classList.add('achieved80');
+    if (rec.bestScore >= 90) btn.classList.add('achieved90');
+  }
+
+  function refreshAllProgressStyles() {
+    const grid = document.getElementById('char-grid');
+    if (!grid) return;
+    ensureProgressLoaded();
+    grid.querySelectorAll('.char-btn').forEach(btn => {
+      const kana = btn.dataset.kana;
+      if (!kana) return;
+      applyProgressStyles(btn, kana);
+    });
+  }
+
+  function updateProgressOnCheck(kana, score) {
+    if (!kana || typeof score !== 'number' || isNaN(score)) return;
+    ensureProgressLoaded();
+    const now = Date.now();
+    const prev = progressMap[kana] || { bestScore: 0, lastScore: 0, updatedAt: 0 };
+    const bestScore = Math.max(prev.bestScore || 0, score);
+    progressMap[kana] = {
+      bestScore,
+      lastScore: score,
+      updatedAt: now
+    };
+    saveProgress();
+    refreshAllProgressStyles();
+  }
+
   function init(initialKana) {
     if (typeof Draw === 'undefined') return;
     if (initialKana) {
@@ -32,6 +92,7 @@
     Draw.clearOverlay();
     clearError('practice-error');
 
+    ensureProgressLoaded();
     buildCharGrid(document.getElementById('char-category')?.value || 'basic');
     bindPractice();
     refreshHistoryPreviewIfVisible();
@@ -80,12 +141,12 @@
             grid.appendChild(empty);
             return;
           }
-          const data = getKanaData(k);
           const btn = document.createElement('button');
           btn.className = 'char-btn' + (k === currentKana ? ' active' : '');
           btn.textContent = k;
           btn.dataset.kana = k;
           btn.addEventListener('click', () => handleKanaClick(k, grid));
+          applyProgressStyles(btn, k);
           grid.appendChild(btn);
         });
       });
@@ -99,6 +160,7 @@
       btn.textContent = d.kana;
       btn.dataset.kana = d.kana;
       btn.addEventListener('click', () => handleKanaClick(d.kana, grid));
+      applyProgressStyles(btn, d.kana);
       grid.appendChild(btn);
     });
   }
@@ -241,6 +303,9 @@
         panel.textContent = '';
       }
     }
+
+    // 達成状況を更新（この文字のベストスコア）
+    updateProgressOnCheck(currentKana, result.score);
 
     const record = {
       timestamp: Date.now(),

@@ -46,6 +46,7 @@
   --fs-md: 1rem;
   --fs-sm: 0.875rem;
   --fs-xs: 0.75rem;
+  --vh: 1vh;
 }
 
 * {
@@ -163,7 +164,7 @@ html, body {
 
 /* 練習画面：2カラム・画面全体スクロール不要 */
 .practice-view-layout {
-  height: 100vh;
+  height: calc(var(--vh) * 100);
   overflow: hidden;
 }
 
@@ -388,8 +389,11 @@ html, body {
 }
 
 .char-btn {
-  width: 2.5rem;
-  height: 2.5rem;
+  position: relative;
+  width: 2.75rem;
+  height: 2.75rem;
+  min-width: 44px;
+  min-height: 44px;
   font-size: 1.25rem;
   border: 1px solid #cbd5e1;
   background: white;
@@ -406,6 +410,32 @@ html, body {
   background: var(--primary);
   color: white;
   border-color: var(--primary);
+}
+
+/* 達成状況（bestScore に応じて着色） */
+.char-btn.achieved80 {
+  background: #e8f9ee;
+  border-color: #8bd3a6;
+}
+
+.char-btn.achieved90::after {
+  content: "★";
+  position: absolute;
+  top: 3px;
+  right: 4px;
+  font-size: 0.7rem;
+  color: #f59e0b;
+}
+
+/* 達成済みかつ選択中: 枠線は青、背景にうっすら緑を残す */
+.char-btn.active.achieved80 {
+  background: linear-gradient(135deg, #e8f9ee, #dbeafe);
+  color: #1e293b;
+  border-color: var(--primary);
+}
+
+.char-btn.active.achieved90::after {
+  content: "★";
 }
 
 .char-cell-empty {
@@ -552,7 +582,7 @@ html, body {
 
 /* テスト画面 */
 .test-view-layout {
-  height: 100vh;
+  height: calc(var(--vh) * 100);
   overflow: hidden;
 }
 
@@ -634,6 +664,16 @@ html, body {
   border-radius: var(--radius);
   overflow: hidden;
   touch-action: none;
+}
+
+/* iOS Safari などでのテキスト選択・コールアウト抑止 */
+canvas,
+.canvas-container,
+.test-canvas-container,
+.replay-canvas-container {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
 }
 
 .test-canvas-container canvas {
