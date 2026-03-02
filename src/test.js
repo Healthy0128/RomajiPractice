@@ -114,16 +114,41 @@
     currentIndex = 0;
     testResults = [];
 
-    document.getElementById('test-config')?.classList.add('hidden');
-    document.getElementById('test-run')?.classList.remove('hidden');
-    document.getElementById('test-result')?.classList.add('hidden');
+    const configEl = document.getElementById('test-config');
+    const runEl = document.getElementById('test-run');
+    const resultEl = document.getElementById('test-result');
+    if (configEl) configEl.classList.add('hidden');
+    if (runEl) runEl.classList.remove('hidden');
+    if (resultEl) resultEl.classList.add('hidden');
 
     if (typeof Draw !== 'undefined') {
-      Draw.initCanvas('test-draw-canvas', 'test-feedback-canvas', 'test-template-canvas');
-      Draw.setDifficultyGetter(() => document.getElementById('test-difficulty')?.value || 'trace');
-      const zoneWidth = 20;
-      const smoothing = 0.5;
-      Draw.setSettings({ zoneWidth, smoothing });
+      // test-run セクションが表示されたあとにキャンバスを初期化する
+      if (typeof requestAnimationFrame !== 'undefined') {
+        requestAnimationFrame(() => {
+          Draw.initCanvas('test-draw-canvas', 'test-feedback-canvas', 'test-template-canvas');
+          Draw.setDifficultyGetter(() => document.getElementById('test-difficulty')?.value || 'trace');
+          const zoneWidth = 20;
+          const smoothing = 0.5;
+          Draw.setSettings({ zoneWidth, smoothing });
+          if (typeof Draw.syncCanvasToWrap === 'function') {
+            Draw.syncCanvasToWrap();
+          }
+          debugTestCanvasLayout('after initCanvas');
+          showCurrentQuestion();
+          bindCheckButton();
+        });
+        return;
+      } else {
+        Draw.initCanvas('test-draw-canvas', 'test-feedback-canvas', 'test-template-canvas');
+        Draw.setDifficultyGetter(() => document.getElementById('test-difficulty')?.value || 'trace');
+        const zoneWidth = 20;
+        const smoothing = 0.5;
+        Draw.setSettings({ zoneWidth, smoothing });
+        if (typeof Draw.syncCanvasToWrap === 'function') {
+          Draw.syncCanvasToWrap();
+        }
+        debugTestCanvasLayout('after initCanvas (no rAF)');
+      }
     }
 
     showCurrentQuestion();
@@ -150,12 +175,31 @@
       Draw.clearFeedback();
       if (diff === 'fade') Draw.setFadeStart();
       Draw.redrawAll();
+      debugTestCanvasLayout('showCurrentQuestion');
     }
 
     document.getElementById('test-verdict').textContent = '';
     document.getElementById('test-verdict').className = 'verdict-display';
     const prog = document.getElementById('test-progress');
     if (prog) prog.textContent = `問題 ${currentIndex + 1} / ${questionList.length}`;
+  }
+
+  /**
+   * テスト画面用のキャンバスレイアウトデバッグ
+   * canvas.getBoundingClientRect() / width / height と wrap の rect をコンソールに出力
+   */
+  function debugTestCanvasLayout(label) {
+    if (typeof document === 'undefined' || typeof console === 'undefined') return;
+    const canvas = document.getElementById('test-draw-canvas');
+    const wrap = canvas ? canvas.parentElement : null;
+    if (!canvas || !wrap || !canvas.getBoundingClientRect) return;
+    const cRect = canvas.getBoundingClientRect();
+    const wRect = wrap.getBoundingClientRect();
+    console.log('[TestCanvas]', label, {
+      canvasClient: { width: cRect.width, height: cRect.height },
+      canvasIntrinsic: { width: canvas.width, height: canvas.height },
+      wrapClient: { width: wRect.width, height: wRect.height }
+    });
   }
 
   function bindCheckButton() {

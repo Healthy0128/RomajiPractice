@@ -659,6 +659,7 @@ html, body {
   position: relative;
   width: 100%;
   max-width: 400px;
+  min-height: calc(var(--vh) * 40);
   margin: 0 auto 1rem;
   background: #fff;
   border-radius: var(--radius);
