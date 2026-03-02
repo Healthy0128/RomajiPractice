@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>ひらがな→ローマ字 手書き練習</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&family=BIZ+UDPMincho&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div id="app">
+    <!-- ホーム画面 -->
+    <div id="home-view" class="view active">
+      <header class="header">
+        <h1>ひらがな→ローマ字<br>手書き練習</h1>
+        <p class="subtitle">タブレット・指・マウスで書いて練習しよう</p>
+      </header>
+      <nav class="home-nav">
+        <button id="btn-practice" class="home-btn" data-target="practice">Practice<br><span class="btn-desc">練習</span></button>
+        <button id="btn-test" class="home-btn" data-target="test">Test<br><span class="btn-desc">テスト（10問）</span></button>
+        <button id="btn-history" class="home-btn" data-target="history">History<br><span class="btn-desc">履歴</span></button>
+      </nav>
+      <div id="home-error" class="error-message" role="alert" aria-live="polite"></div>
+    </div>
+
+    <!-- 練習画面：左=文字選択、右=練習エリア（2カラム・スクロール不要） -->
+    <div id="practice-view" class="view practice-view-layout">
+      <header class="header compact">
+        <button id="btn-back-practice" class="back-btn" aria-label="戻る">←</button>
+        <h2>Practice</h2>
+      </header>
+      <div class="practice-content">
+        <aside class="practice-left">
+          <div class="char-select-area">
+            <label for="char-category">カテゴリ</label>
+            <select id="char-category">
+              <option value="basic">清音（あ〜ん）</option>
+              <option value="dakuten">濁音・半濁音</option>
+              <option value="yoon">拗音</option>
+              <option value="other">促音・長音</option>
+            </select>
+            <div id="char-grid" class="char-grid"></div>
+          </div>
+          <div class="settings-row">
+            <label for="difficulty">難易度</label>
+            <select id="difficulty">
+              <option value="trace">Trace（手本濃い）</option>
+              <option value="ghost">Ghost（手本薄い）</option>
+              <option value="fade">Fade（1秒で消える）</option>
+              <option value="blind">Blind（手本非表示）</option>
+            </select>
+          </div>
+          <div class="support-sliders">
+            <div class="slider-group">
+              <label for="zone-width">許容ゾーン: <span id="zone-width-val">20</span>px</label>
+              <input type="range" id="zone-width" min="10" max="40" value="20">
+            </div>
+            <div class="slider-group">
+              <label for="smoothing">補正: <span id="smoothing-val">0.5</span></label>
+              <input type="range" id="smoothing" min="0" max="1" step="0.1" value="0.5">
+            </div>
+            <div class="slider-group">
+              <label for="pass-line">合格ライン: <span id="pass-line-val">70</span>%</label>
+              <input type="range" id="pass-line" min="50" max="90" value="70">
+            </div>
+          </div>
+        </aside>
+        <div class="practice-right">
+          <div class="problem-area">
+            <div id="current-kana" class="current-kana">あ</div>
+          </div>
+          <div class="canvas-container">
+            <canvas id="template-canvas" class="template-layer" width="400" height="300"></canvas>
+            <canvas id="draw-canvas" width="400" height="300"></canvas>
+            <canvas id="feedback-canvas" class="feedback-overlay" width="400" height="300"></canvas>
+            <button type="button" id="practice-history-toggle" class="practice-history-toggle">履歴を表示</button>
+            <div id="practice-history-preview" class="practice-history-preview hidden">
+              <div id="practice-history-list" class="practice-history-list"></div>
+            </div>
+          </div>
+          <div class="practice-controls">
+            <div class="practice-buttons">
+              <button id="btn-check" class="action-btn primary">判定</button>
+              <button id="btn-clear" class="action-btn">やり直し</button>
+              <button id="btn-next" class="action-btn">次へ</button>
+            </div>
+            <div class="debug-toggle">
+              <label class="checkbox-label">
+                <input type="checkbox" id="debug-bbox-toggle">
+                デバッグ: 手本/書字の枠を表示
+              </label>
+              <label class="checkbox-label">
+                <input type="checkbox" id="grading-debug-toggle">
+                デバッグ: 採点内訳を表示
+              </label>
+            </div>
+            <div id="grading-debug-panel" class="grading-debug-panel"></div>
+            <div id="verdict-display" class="verdict-display" aria-live="polite"></div>
+            <div id="practice-error" class="error-message" role="alert" aria-live="polite"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- テスト画面 -->
+    <div id="test-view" class="view test-view-layout">
+      <header class="header compact">
+        <button id="btn-back-test" class="back-btn" aria-label="戻る">←</button>
+        <h2>Test</h2>
+      </header>
+      <div class="test-content">
+        <!-- 設定 -->
+        <section id="test-config" class="test-config">
+          <h3>テスト設定</h3>
+          <div class="test-config-row">
+            <label for="test-mode">出題方式</label>
+            <select id="test-mode">
+              <option value="random">ランダム出題（カテゴリから）</option>
+              <option value="select">選択出題（文字セットを選ぶ）</option>
+            </select>
+          </div>
+          <div id="test-random-category" class="test-config-row">
+            <label for="test-category">カテゴリ（ランダム時）</label>
+            <select id="test-category">
+              <option value="basic">清音</option>
+              <option value="dakuten">濁音・半濁音</option>
+              <option value="yoon">拗音</option>
+              <option value="other">促音・長音</option>
+            </select>
+          </div>
+          <div id="test-select-chars" class="test-select-chars hidden">
+            <label>出題する文字を選んでください</label>
+            <select id="test-select-category">
+              <option value="basic">清音</option>
+              <option value="dakuten">濁音・半濁音</option>
+              <option value="yoon">拗音</option>
+              <option value="other">促音・長音</option>
+            </select>
+            <div id="test-char-set" class="test-char-set"></div>
+          </div>
+          <div class="test-config-row">
+            <label for="test-count">問題数</label>
+            <select id="test-count">
+              <option value="5">5問</option>
+              <option value="10" selected>10問</option>
+              <option value="20">20問</option>
+            </select>
+          </div>
+          <div class="test-config-row">
+            <label for="test-difficulty">難易度</label>
+            <select id="test-difficulty">
+              <option value="trace">Trace</option>
+              <option value="ghost">Ghost</option>
+              <option value="fade">Fade</option>
+              <option value="blind">Blind</option>
+            </select>
+          </div>
+          <div class="test-config-row">
+            <label for="test-pass-line">合格ライン: <span id="test-pass-line-val">70</span>%</label>
+            <input type="range" id="test-pass-line" min="50" max="90" value="70">
+          </div>
+          <button id="test-start-btn" class="action-btn primary">開始</button>
+        </section>
+        <!-- 問題表示 -->
+        <section id="test-run" class="test-run hidden">
+          <div class="test-problem-area">
+            <span id="test-current-kana" class="test-current-kana"></span>
+            <span id="test-current-romaji" class="test-current-romaji muted"></span>
+          </div>
+          <div class="test-canvas-container">
+            <canvas id="test-template-canvas" class="template-layer" width="400" height="300"></canvas>
+            <canvas id="test-draw-canvas" width="400" height="300"></canvas>
+            <canvas id="test-feedback-canvas" class="feedback-overlay" width="400" height="300"></canvas>
+          </div>
+          <div class="test-run-buttons">
+            <button id="test-check-btn" class="action-btn primary">判定</button>
+            <button id="test-next-btn" class="action-btn hidden">次へ</button>
+          </div>
+          <div class="debug-toggle">
+            <label class="checkbox-label">
+              <input type="checkbox" id="test-debug-bbox">
+              デバッグ: 手本/書字の枠を表示
+            </label>
+          </div>
+          <div id="test-verdict" class="verdict-display" aria-live="polite"></div>
+          <p id="test-progress" class="muted"></p>
+        </section>
+        <!-- 結果 -->
+        <section id="test-result" class="test-result hidden">
+          <h3>結果</h3>
+          <p id="test-result-summary"></p>
+          <p id="test-result-average"></p>
+          <div id="test-wrong-list" class="test-wrong-list"></div>
+          <button id="test-result-back" class="action-btn">ホームへ</button>
+        </section>
+        <div id="test-error" class="error-message" role="alert" aria-live="polite"></div>
+      </div>
+    </div>
+
+    <!-- 履歴画面 -->
+    <div id="history-view" class="view">
+      <header class="header compact">
+        <button id="btn-back-history" class="back-btn" aria-label="戻る">←</button>
+        <h2>History</h2>
+      </header>
+      <div class="history-content">
+        <div class="history-filters">
+          <select id="filter-kana" aria-label="かなで絞り込み">
+            <option value="">全てのかな</option>
+          </select>
+          <select id="filter-difficulty" aria-label="難易度で絞り込み">
+            <option value="">全ての難易度</option>
+            <option value="trace">Trace</option>
+            <option value="ghost">Ghost</option>
+            <option value="fade">Fade</option>
+            <option value="blind">Blind</option>
+          </select>
+          <select id="filter-verdict" aria-label="合否で絞り込み">
+            <option value="">全て</option>
+            <option value="green">合格</option>
+            <option value="yellow">おしい</option>
+            <option value="red">もう一回</option>
+          </select>
+        </div>
+        <div class="history-actions">
+          <button id="btn-delete-all" class="danger-btn">全削除</button>
+        </div>
+        <div id="history-list" class="history-list"></div>
+        <div id="history-detail" class="history-detail hidden">
+          <h3>詳細・リプレイ</h3>
+          <div class="detail-info" id="detail-info"></div>
+          <div class="replay-controls">
+            <label for="replay-speed">再生速度</label>
+            <select id="replay-speed">
+              <option value="0.5">0.5x</option>
+              <option value="1" selected>1x</option>
+              <option value="2">2x</option>
+            </select>
+            <label class="checkbox-label">
+              <input type="checkbox" id="replay-show-template">
+              手本を重ねて表示
+            </label>
+          </div>
+          <div class="replay-canvas-container">
+            <canvas id="replay-canvas" width="400" height="300"></canvas>
+          </div>
+          <div class="replay-buttons">
+            <button id="btn-replay-play">再生</button>
+            <button id="btn-replay-close">閉じる</button>
+            <button id="btn-delete-one" class="danger-btn">この1件を削除</button>
+          </div>
+        </div>
+        <div id="history-error" class="error-message" role="alert" aria-live="polite"></div>
+      </div>
+    </div>
+  </div>
+  <script src="src/utils.js"></script>
+  <script src="src/data.js"></script>
+  <script src="src/db.js"></script>
+  <script src="src/template.js"></script>
+  <script src="src/grading.js"></script>
+  <script src="src/draw.js"></script>
+  <script src="src/practice.js"></script>
+  <script src="src/history.js"></script>
+  <script src="src/test.js"></script>
+  <script src="src/app.js"></script>
+</body>
+</html>
