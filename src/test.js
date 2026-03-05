@@ -212,7 +212,10 @@
   function applyTestCheckResult(result, strokesData, templateInfo, q) {
     testResults.push({ kana: q.kana, romaji: q.romaji, score: result.score, verdict: result.verdict });
     const vEl = document.getElementById('test-verdict');
-    vEl.textContent = `${result.message}（${result.score}点）`;
+    const ocrInfo = result.ocrText != null && result.ocrText !== ''
+      ? ` / OCR: ${String(result.ocrText)}`
+      : '';
+    vEl.textContent = `${result.message}（${result.score}点）${ocrInfo}`;
     vEl.className = 'verdict-display ' + result.verdict;
     Draw.drawFeedback(result.outsidePixels);
     const debugToggle = document.getElementById('test-debug-bbox');

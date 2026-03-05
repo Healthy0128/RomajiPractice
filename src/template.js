@@ -32,12 +32,17 @@
     return fontReady ? Promise.resolve() : (fontReadyPromise || Promise.resolve());
   }
 
-  /** 4線の位置（writing area 高さ h に対する比率） */
-  const TOP_LINE = 0.25;
-  const MID_LINE = 0.50;   // writing area のちょうど中央
-  const BASE_LINE = 0.72;
-  const BOTTOM_LINE = 0.88;
+  /** 4線の位置（キャンバス高さ h に対する比率） */
+  // 文字サイズを2倍にしたので、上下の線を少し広げてバランスを取り直す
+  const TOP_LINE = 0.20;
+  const MID_LINE = 0.50;   // おおよその中央
+  const BASE_LINE = 0.78;
+  const BOTTOM_LINE = 0.94;
   const FOUR_LINE_ALPHA = 0.18;
+
+  // フォントサイズ計算用の論理的な書字エリア（従来の比率を維持して文字サイズを安定させる）
+  const FONT_TOP_RATIO = 0.25;
+  const FONT_BASE_RATIO = 0.72;
 
   /**
    * キャンバスサイズからメトリクスを計算
@@ -138,8 +143,9 @@
    */
   function measureRomaji(ctx, romaji, width, height) {
     const m = getMetrics(width, height);
-    const writingHeight = m.baseLine - m.topLine;
-    // 画面に対する文字サイズを約2倍に（writingArea に収まる範囲で）
+    // 文字サイズは、4線表示とは独立した「論理的な書字エリア」を基準に計算する
+    const writingHeight = height * (FONT_BASE_RATIO - FONT_TOP_RATIO);
+    // 画面に対する文字サイズを約2倍に（従来の高さ比からの 2 倍）
     const sizeScale = 2;
     let fontSize = Math.max(10, Math.floor(writingHeight * 0.95 * sizeScale));
 

@@ -343,11 +343,15 @@
           const lengthTotal = result.lengthTotal ?? 0;
           const baseScore = result.baseScore ?? 0;
           const finalScore = result.score ?? 0;
+          const ocrInfo = result.ocrText != null && result.ocrText !== ''
+            ? String(result.ocrText)
+            : '(未実行または結果なし)';
           panel.textContent =
             `inside: ${inside} / outside: ${outside} (rate: ${(outsideRate * 100).toFixed(1)}%)\n` +
             `coverage: ${(coverage * 100).toFixed(1)}%\n` +
             `length: 実測 ${lengthTotal.toFixed(1)} / 閾値 ${lengthGate.toFixed(1)}\n` +
-            `baseScore: ${baseScore} / finalScore: ${finalScore}`;
+            `baseScore: ${baseScore} / finalScore: ${finalScore}\n` +
+            `OCR: ${ocrInfo}`;
           if (typeof Draw.drawClassificationOverlay === 'function') {
             Draw.drawClassificationOverlay(result.insidePixels, result.outsidePixels);
           }

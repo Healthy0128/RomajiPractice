@@ -210,8 +210,8 @@
     const finalScore = Math.max(0, Math.min(100, baseScore - penalty));
     result.score = Math.round(finalScore);
 
-    // 別の文字として読まれたら50点を超えられない
-    // (1) OCR で読み取った文字が正解と異なる場合はキャップ
+    // 別の文字として読まれたら50点を超えられない（判定は OCR のみを使用）
+    // OCR で読み取った文字が正解と異なる場合はキャップ
     if (result.score > 49 && options && options.ocrText !== undefined) {
       const ocrNorm = (options.ocrText || '').trim().toLowerCase().replace(/\s/g, '');
       const expectedLetter = (templateInfo.letter || (templateInfo.romaji && templateInfo.romaji[0]) || '').toLowerCase();
@@ -223,28 +223,11 @@
         }
       }
     }
-    // (2) マスク一致のみのとき：混同しやすい文字のマスク比較（OCR 未使用時用）
-    if (result.score > 49 && (!options || options.ocrText === undefined)) {
-      const correctLetter = (templateInfo.letter || (templateInfo.romaji && templateInfo.romaji[0]) || '').toLowerCase();
-      if (correctLetter && /^[a-z]$/.test(correctLetter)) {
-        const correctInside = maskResult.inside;
-        const alts = getConfusableLetters(correctLetter);
-        const INSIDE_RATE_GATE = 0.9;
-        const ALT_MARGIN_FACTOR = 1.12;
-        if (insideRate < INSIDE_RATE_GATE && correctInside >= 30) {
-          for (let k = 0; k < alts.length; k++) {
-            const altInside = countInsideForLetter(evalPoints, templateInfo, alts[k], maskW, maskH);
-            if (altInside > correctInside * ALT_MARGIN_FACTOR) {
-              result.score = Math.min(result.score, 49);
-              result.message = '別の文字に読まれました';
-              break;
-            }
-          }
-        }
-      }
-    }
 
     // デバッグ用に内訳を保持
+    if (options && typeof options === 'object' && options.ocrText !== undefined) {
+      result.ocrText = options.ocrText;
+    }
     result.outsideRate = outsideRate;
     result.coverage = coverage;
     result.baseScore = Math.round(baseScore);
