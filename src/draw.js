@@ -673,6 +673,41 @@
     return ocrCanvas;
   }
 
+  /**
+   * 指定した枠だけを切り出した OCR 用キャンバス（白背景＋その枠のストロークのみ、枠ローカル座標）。
+   * 複数枠で「枠ごとに1文字ずつ判定」するときに使う。
+   */
+  function getImageForOCRBox(boxIndex) {
+    const box = (boxRects && boxRects[boxIndex]) ? boxRects[boxIndex] : null;
+    if (!box || !box.w || !box.h) return null;
+    const scale = 2;
+    const ocrCanvas = document.createElement('canvas');
+    ocrCanvas.width = box.w * scale;
+    ocrCanvas.height = box.h * scale;
+    const ocrCtx = ocrCanvas.getContext('2d');
+    if (!ocrCtx) return null;
+    ocrCtx.scale(scale, scale);
+    ocrCtx.fillStyle = '#fff';
+    ocrCtx.fillRect(0, 0, box.w, box.h);
+    ocrCtx.strokeStyle = '#000';
+    ocrCtx.lineWidth = userStrokeWidth;
+    ocrCtx.lineCap = 'round';
+    ocrCtx.lineJoin = 'round';
+    strokes.forEach(stroke => {
+      const bIndex = stroke.boxIndex != null ? stroke.boxIndex : 0;
+      if (bIndex !== boxIndex) return;
+      const pts = stroke.points || stroke;
+      if (!pts || pts.length < 2) return;
+      ocrCtx.beginPath();
+      ocrCtx.moveTo(pts[0].x - box.x, pts[0].y - box.y);
+      for (let i = 1; i < pts.length; i++) {
+        ocrCtx.lineTo(pts[i].x - box.x, pts[i].y - box.y);
+      }
+      ocrCtx.stroke();
+    });
+    return ocrCanvas;
+  }
+
   /** 採点用：Template と同一の metrics を渡し、grading で drawTemplateRomaji を呼べるようにする */
   function getTemplateForGrading() {
     if (!templateRomaji || !textLayout) {
@@ -847,6 +882,7 @@
     clearOverlay,
     getTemplateForGrading,
     getImageForOCR,
+    getImageForOCRBox,
     getCanvasSize: () => ({ width, height }),
     getUserStrokeWidth: () => userStrokeWidth,
     syncCanvasToWrap: resizeCanvas,

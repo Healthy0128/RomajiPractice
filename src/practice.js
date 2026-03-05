@@ -438,8 +438,37 @@
       });
     }
 
+    const boxes = templateInfo.boxes || [];
+    const multiBox = boxes.length > 1 && typeof Draw.getImageForOCRBox === 'function';
+    const hasTesseract = typeof Tesseract !== 'undefined' && Tesseract.recognize;
+
+    if (multiBox && hasTesseract) {
+      vEl.textContent = '認識中...';
+      vEl.className = 'verdict-display';
+      const promises = boxes.map(function (_, i) {
+        const canvas = Draw.getImageForOCRBox(i);
+        return canvas ? Tesseract.recognize(canvas, 'eng', { logger: function () {} }) : Promise.resolve(null);
+      });
+      Promise.all(promises)
+        .then(function (ocrResults) {
+          const ocrPerBox = ocrResults.map(function (r) {
+            return r ? extractOcrInfo(r) : { text: '', letter: '', confidence: 0 };
+          });
+          const result = Grading.grade(strokesData, templateInfo, passLine, {
+            difficulty: difficulty,
+            ocrPerBox: ocrPerBox
+          });
+          applyResult(result);
+        })
+        .catch(function () {
+          const result = Grading.grade(strokesData, templateInfo, passLine, { difficulty: difficulty });
+          applyResult(result);
+        });
+      return;
+    }
+
     const ocrCanvas = typeof Draw.getImageForOCR === 'function' ? Draw.getImageForOCR() : null;
-    if (ocrCanvas && typeof Tesseract !== 'undefined' && Tesseract.recognize) {
+    if (ocrCanvas && hasTesseract) {
       vEl.textContent = '認識中...';
       vEl.className = 'verdict-display';
       Tesseract.recognize(ocrCanvas, 'eng', { logger: function () {} })

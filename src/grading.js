@@ -710,17 +710,32 @@
       result.verdict = 'red';
       result.message = '各枠に文字を書いてください';
     } else {
-      // 複数枠の抽象ルール2: 2文字以上は OCR 必須。未実行・空・または期待文字列と不一致なら50点未満に
-      const expectedRomaji = (templateInfo.romaji || letters.join('') || '').toLowerCase().replace(/[^a-z]/g, '');
-      if (result.score > 49 && expectedRomaji.length >= 2) {
-        const ocrRaw = (options && options.ocrText !== undefined) ? (options.ocrText || '').trim().toLowerCase() : '';
-        const ocrNorm = ocrRaw.replace(/[^a-z]/g, '');
-        if (ocrNorm.length === 0) {
-          result.score = Math.min(result.score, 49);
-          result.message = 'OCRで読み取れませんでした';
-        } else if (ocrNorm !== expectedRomaji) {
-          result.score = Math.min(result.score, 49);
-          result.message = '別の文字に読まれました';
+      // 複数枠の抽象ルール2: 枠ごとに OCR 結果を1文字ずつ判定（ocrPerBox 優先）
+      if (result.score > 49 && options && Array.isArray(options.ocrPerBox) && options.ocrPerBox.length > 0) {
+        const CONF_GATE = 75;
+        for (let i = 0; i < letters.length && i < options.ocrPerBox.length; i++) {
+          const expected = (letters[i] || '').toLowerCase();
+          if (!expected || !/^[a-z]$/.test(expected)) continue;
+          const info = options.ocrPerBox[i];
+          const ocrLetter = (info && info.letter) ? String(info.letter).toLowerCase() : '';
+          if (!ocrLetter || !/^[a-z]$/.test(ocrLetter)) continue;
+          const conf = (info && typeof info.confidence === 'number') ? info.confidence : 0;
+          if (ocrLetter !== expected && (conf === 0 || conf >= CONF_GATE)) {
+            result.score = Math.min(result.score, 49);
+            result.message = '別の文字に読まれました';
+            break;
+          }
+        }
+      } else if (result.score > 49 && options && options.ocrText !== undefined) {
+        // 互換: 全体1枚の OCR 結果で文字数が同じときだけ比較
+        const expectedRomaji = (templateInfo.romaji || letters.join('') || '').toLowerCase().replace(/[^a-z]/g, '');
+        if (expectedRomaji.length >= 2) {
+          const ocrRaw = (options.ocrText || '').trim().toLowerCase();
+          const ocrNorm = ocrRaw.replace(/[^a-z]/g, '');
+          if (ocrNorm.length === expectedRomaji.length && ocrNorm !== expectedRomaji) {
+            result.score = Math.min(result.score, 49);
+            result.message = '別の文字に読まれました';
+          }
         }
       }
     }
@@ -753,8 +768,11 @@
     result.lengthGate = undefined;
     result.penalty = undefined;
 
-    if (options && typeof options === 'object' && options.ocrText !== undefined) {
-      result.ocrText = options.ocrText;
+    if (options && typeof options === 'object') {
+      if (options.ocrText !== undefined) result.ocrText = options.ocrText;
+      if (Array.isArray(options.ocrPerBox) && options.ocrPerBox.length > 0) {
+        result.ocrText = options.ocrPerBox.map(function (p) { return (p && p.letter) ? p.letter : '-'; }).join(', ');
+      }
     }
     result.debug = null;
     return result;
