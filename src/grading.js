@@ -703,16 +703,41 @@
     const avgScore = totalScore / validBoxCount;
     result.score = Math.round(Math.max(0, Math.min(100, avgScore)));
 
-    // 合否判定（総合のみ）
-    if (result.score >= passLine) {
-      result.verdict = 'green';
-      result.message = '合格';
-    } else if (result.score >= passLine - 10) {
-      result.verdict = 'yellow';
-      result.message = 'おしい';
-    } else {
+    // 複数枠の抽象ルール1: いずれかの枠が0点（空枠・線が短い）なら全体不合格
+    const anyBoxZero = result.perBox.some(function (br) { return br.score === 0; });
+    if (anyBoxZero) {
+      result.score = 0;
       result.verdict = 'red';
-      result.message = 'もう一回';
+      result.message = '各枠に文字を書いてください';
+    } else {
+      // 複数枠の抽象ルール2: 2文字以上は OCR 必須。未実行・空・または期待文字列と不一致なら50点未満に
+      const expectedRomaji = (templateInfo.romaji || letters.join('') || '').toLowerCase().replace(/[^a-z]/g, '');
+      if (result.score > 49 && expectedRomaji.length >= 2) {
+        const ocrRaw = (options && options.ocrText !== undefined) ? (options.ocrText || '').trim().toLowerCase() : '';
+        const ocrNorm = ocrRaw.replace(/[^a-z]/g, '');
+        if (ocrNorm.length === 0) {
+          result.score = Math.min(result.score, 49);
+          result.message = 'OCRで読み取れませんでした';
+        } else if (ocrNorm !== expectedRomaji) {
+          result.score = Math.min(result.score, 49);
+          result.message = '別の文字に読まれました';
+        }
+      }
+    }
+
+    // 合否判定（総合のみ）
+    const keptMessage = result.message === '別の文字に読まれました' || result.message === 'OCRで読み取れませんでした';
+    if (!anyBoxZero) {
+      if (result.score >= passLine) {
+        result.verdict = 'green';
+        if (!keptMessage) result.message = '合格';
+      } else if (result.score >= passLine - 10) {
+        result.verdict = 'yellow';
+        if (!keptMessage) result.message = 'おしい';
+      } else {
+        result.verdict = 'red';
+        if (!keptMessage) result.message = 'もう一回';
+      }
     }
 
     result.inside = sumInside;
@@ -728,6 +753,9 @@
     result.lengthGate = undefined;
     result.penalty = undefined;
 
+    if (options && typeof options === 'object' && options.ocrText !== undefined) {
+      result.ocrText = options.ocrText;
+    }
     result.debug = null;
     return result;
   }

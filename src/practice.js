@@ -395,7 +395,11 @@
           const ocrInfo = result.ocrText != null && result.ocrText !== ''
             ? String(result.ocrText)
             : '(未実行または結果なし)';
+          const perBoxLine = (result.perBox && result.perBox.length > 0)
+            ? '各枠: ' + result.perBox.map(function (b) { return b.score; }).join(', ') + '\n'
+            : '';
           panel.textContent =
+            perBoxLine +
             `inside: ${inside} / outside: ${outside} (rate: ${(outsideRate * 100).toFixed(1)}%)\n` +
             `coverage: ${(coverage * 100).toFixed(1)}%\n` +
             `length: 実測 ${lengthTotal.toFixed(1)} / 閾値 ${lengthGate.toFixed(1)}\n` +
