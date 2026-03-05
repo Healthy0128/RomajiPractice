@@ -139,8 +139,9 @@
   function measureRomaji(ctx, romaji, width, height) {
     const m = getMetrics(width, height);
     const writingHeight = m.baseLine - m.topLine;
-    // writingArea に収まるようにフォントサイズを決定
-    let fontSize = Math.max(10, Math.floor(writingHeight * 0.95));
+    // 画面に対する文字サイズを約2倍に（writingArea に収まる範囲で）
+    const sizeScale = 2;
+    let fontSize = Math.max(10, Math.floor(writingHeight * 0.95 * sizeScale));
 
     const maxW = width * 0.9;
     // 横幅がはみ出す場合のみ縮小

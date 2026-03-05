@@ -25,6 +25,31 @@
   const CENTER_SOFT_X_RATIO = 0.12; // この範囲を超えた分だけ減点
   const CENTER_SOFT_Y_RATIO = 0.10;
 
+  /** 別の文字として読まれたら50点を超えられない：混同しやすい文字の対応表 */
+  const CONFUSABLES = {
+    a: ['o', 'e', 'd', 'q', 'c'], b: ['h', 'd', 'p', 'r'], c: ['o', 'e', 'a', 'q'],
+    d: ['b', 'a', 'q', 'p'], e: ['a', 'c', 'o'], f: ['t', 'l'], g: ['q', 'y', 'j'],
+    h: ['b', 'n', 'k'], i: ['l', 'j', 't'], j: ['i', 'g', 'y'], k: ['h', 'r'],
+    l: ['i', 't', 'h'], m: ['n', 'w'], n: ['m', 'h', 'u', 'r'], o: ['a', 'c', 'e', 'q', 'd'],
+    p: ['b', 'd', 'r'], q: ['d', 'g', 'a', 'o'], r: ['n', 'k', 'p'], s: ['z', 'c'],
+    t: ['f', 'l', 'i'], u: ['n', 'v', 'w'], v: ['u', 'w'], w: ['m', 'v', 'u'],
+    x: ['k', 'y'], y: ['g', 'v', 'j'], z: ['s', 'r']
+  };
+  const DEFAULT_ALTERNATIVES = 'a,c,e,i,o,u,n,m,h,r'.split(',');
+
+  function getConfusableLetters(correctLetter) {
+    const c = (correctLetter || '').toLowerCase();
+    if (CONFUSABLES[c]) return CONFUSABLES[c];
+    return DEFAULT_ALTERNATIVES.filter(function (ch) { return ch !== c; });
+  }
+
+  /** 指定した1文字のマスクに対して、ユーザー点のうち inside の個数を返す */
+  function countInsideForLetter(points, templateInfo, letter, maskW, maskH) {
+    const altInfo = Object.assign({}, templateInfo, { romaji: letter, letter: letter });
+    const r = computeMaskScore(points, altInfo, maskW, maskH);
+    return r.inside;
+  }
+
   /**
    * メインの採点関数。
    * 単一文字: 従来どおり canvas 全体で採点
@@ -185,6 +210,21 @@
     const finalScore = Math.max(0, Math.min(100, baseScore - penalty));
     result.score = Math.round(finalScore);
 
+    // 別の文字として読まれたら50点を超えられない
+    if (result.score > 49) {
+      const correctLetter = (templateInfo.letter || (templateInfo.romaji && templateInfo.romaji[0]) || '').toLowerCase();
+      const correctInside = maskResult.inside;
+      const alts = getConfusableLetters(correctLetter);
+      for (let k = 0; k < alts.length; k++) {
+        const altInside = countInsideForLetter(evalPoints, templateInfo, alts[k], maskW, maskH);
+        if (altInside >= correctInside) {
+          result.score = Math.min(result.score, 49);
+          result.message = '別の文字に読まれました';
+          break;
+        }
+      }
+    }
+
     // デバッグ用に内訳を保持
     result.outsideRate = outsideRate;
     result.coverage = coverage;
@@ -193,24 +233,26 @@
     result.lengthGate = minStrokeLength;
     result.penalty = penalty;
 
-    // 判定と簡易理由
+    // 判定と簡易理由（別文字キャップ時はメッセージを上書きしない）
+    const keptMessage = result.message === '別の文字に読まれました';
     if (result.score >= passLine) {
       result.verdict = 'green';
-      result.message = '合格';
+      if (!keptMessage) result.message = '合格';
     } else if (result.score >= passLine - 10) {
       result.verdict = 'yellow';
-      result.message = 'おしい';
+      if (!keptMessage) result.message = 'おしい';
     } else {
       result.verdict = 'red';
-      // スコアが伸びない主な要因を簡単に説明
-      if (totalStrokeLength < minStrokeLength * 1.05) {
-        result.message = '線が短すぎます';
-      } else if (outsideRate > 0.35) {
-        result.message = '線が枠からはみ出しています';
-      } else if (coverage < 0.5) {
-        result.message = '手本の線をもう少しなぞってみよう';
-      } else {
-        result.message = 'もう一回';
+      if (!keptMessage) {
+        if (totalStrokeLength < minStrokeLength * 1.05) {
+          result.message = '線が短すぎます';
+        } else if (outsideRate > 0.35) {
+          result.message = '線が枠からはみ出しています';
+        } else if (coverage < 0.5) {
+          result.message = '手本の線をもう少しなぞってみよう';
+        } else {
+          result.message = 'もう一回';
+        }
       }
     }
 

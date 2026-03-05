@@ -26,6 +26,7 @@
   let resizeObserver = null;
   let overlayStrokes = null;
   let userStrokeWidth = 8;
+  let userStrokeWidthManual = false; // スライダーで指定中は true
 
   let onPointsChange = null;
 
@@ -414,6 +415,7 @@
   }
 
   function recalcStrokeWidth() {
+    if (userStrokeWidthManual) return; // スライダーで指定中はテンプレ基準で上書きしない
     if (!templateRomaji || !textLayout || !templateCtx || typeof Template === 'undefined' || !Template.estimateFontStrokeWidth) {
       return;
     }
@@ -622,6 +624,11 @@
   function setSettings(opts) {
     if (opts.zoneWidth != null) zoneWidth = opts.zoneWidth;
     if (opts.smoothing != null) smoothing = opts.smoothing;
+    if (opts.userStrokeWidth != null) {
+      const v = Math.max(2, Math.min(48, Number(opts.userStrokeWidth)));
+      userStrokeWidth = v;
+      userStrokeWidthManual = true;
+    }
   }
 
   function getStrokes() {
@@ -809,6 +816,7 @@
     clearOverlay,
     getTemplateForGrading,
     getCanvasSize: () => ({ width, height }),
+    getUserStrokeWidth: () => userStrokeWidth,
     syncCanvasToWrap: resizeCanvas,
     drawDebugBoxes,
     initReplayCanvas,

@@ -96,12 +96,50 @@
     buildCharGrid(document.getElementById('char-category')?.value || 'basic');
     bindPractice();
     refreshHistoryPreviewIfVisible();
+    // 線の太さスライダーを現在値に合わせる
+    const strokeInput = document.getElementById('stroke-width');
+    const strokeValEl = document.getElementById('stroke-width-val');
+    if (strokeInput && strokeValEl && typeof Draw.getUserStrokeWidth === 'function') {
+      const w = Draw.getUserStrokeWidth();
+      strokeInput.value = w;
+      strokeValEl.textContent = w;
+    }
   }
 
   function updateSettings() {
     const zoneWidth = parseInt(document.getElementById('zone-width')?.value || '20', 10);
     const smoothing = parseFloat(document.getElementById('smoothing')?.value || '0.5');
     Draw.setSettings({ zoneWidth, smoothing });
+    const strokeW = document.getElementById('stroke-width');
+    if (strokeW && strokeW.value !== '') {
+      Draw.setSettings({ userStrokeWidth: parseInt(strokeW.value, 10) });
+    }
+  }
+
+  /**
+   * 現在のストロークをポイントJSONとしてダウンロード
+   */
+  function exportPointsJson() {
+    if (typeof Draw === 'undefined' || !Draw.getStrokes || !Draw.getCanvasSize) return;
+    const strokes = Draw.getStrokes();
+    const size = Draw.getCanvasSize();
+    const data = getKanaData(currentKana);
+    const obj = {
+      kana: currentKana,
+      romaji: data ? data.romaji : '',
+      timestamp: Date.now(),
+      canvasWidth: size ? size.width : 0,
+      canvasHeight: size ? size.height : 0,
+      strokes
+    };
+    const json = JSON.stringify(obj, null, 2);
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'strokes_' + (currentKana || '') + '_' + Date.now() + '.json';
+    a.click();
+    URL.revokeObjectURL(url);
   }
 
   function syncTemplate() {
@@ -211,6 +249,20 @@
     }
     const passEl = document.getElementById('pass-line');
     if (passEl) passEl.addEventListener('input', e => { document.getElementById('pass-line-val').textContent = e.target.value; });
+
+    const strokeWidthEl = document.getElementById('stroke-width');
+    if (strokeWidthEl) {
+      strokeWidthEl.addEventListener('input', e => {
+        const val = e.target.value;
+        const valEl = document.getElementById('stroke-width-val');
+        if (valEl) valEl.textContent = val;
+        Draw.setSettings({ userStrokeWidth: parseInt(val, 10) });
+        Draw.redrawAll();
+      });
+    }
+
+    const exportJsonBtn = document.getElementById('btn-export-json');
+    if (exportJsonBtn) exportJsonBtn.addEventListener('click', exportPointsJson);
 
     const diffEl = document.getElementById('difficulty');
     if (diffEl) {
