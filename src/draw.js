@@ -642,6 +642,37 @@
     return strokes.reduce((acc, s) => acc.concat(s.points), []);
   }
 
+  /**
+   * OCR用：白背景＋黒ストロークのみのキャンバスを返す。
+   * 枠内のみが必要な場合は call 側で crop する想定。ここでは全体を返す。
+   */
+  function getImageForOCR() {
+    const w = width;
+    const h = height;
+    const scale = 2;
+    const ocrCanvas = document.createElement('canvas');
+    ocrCanvas.width = w * scale;
+    ocrCanvas.height = h * scale;
+    const ocrCtx = ocrCanvas.getContext('2d');
+    if (!ocrCtx) return null;
+    ocrCtx.scale(scale, scale);
+    ocrCtx.fillStyle = '#fff';
+    ocrCtx.fillRect(0, 0, w, h);
+    ocrCtx.strokeStyle = '#000';
+    ocrCtx.lineWidth = userStrokeWidth;
+    ocrCtx.lineCap = 'round';
+    ocrCtx.lineJoin = 'round';
+    strokes.forEach(stroke => {
+      const pts = stroke.points || stroke;
+      if (!pts || pts.length < 2) return;
+      ocrCtx.beginPath();
+      ocrCtx.moveTo(pts[0].x, pts[0].y);
+      for (let i = 1; i < pts.length; i++) ocrCtx.lineTo(pts[i].x, pts[i].y);
+      ocrCtx.stroke();
+    });
+    return ocrCanvas;
+  }
+
   /** 採点用：Template と同一の metrics を渡し、grading で drawTemplateRomaji を呼べるようにする */
   function getTemplateForGrading() {
     if (!templateRomaji || !textLayout) {
@@ -815,6 +846,7 @@
     setOverlayStrokes,
     clearOverlay,
     getTemplateForGrading,
+    getImageForOCR,
     getCanvasSize: () => ({ width, height }),
     getUserStrokeWidth: () => userStrokeWidth,
     syncCanvasToWrap: resizeCanvas,

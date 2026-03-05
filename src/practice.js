@@ -320,69 +320,85 @@
     }
     const passLine = parseInt(document.getElementById('pass-line')?.value || '70', 10);
     const difficulty = document.getElementById('difficulty')?.value || 'trace';
-    const result = Grading.grade(strokesData, templateInfo, passLine, { difficulty });
-
     const vEl = document.getElementById('verdict-display');
-    vEl.textContent = `${result.message}（${result.score}点）`;
-    vEl.className = 'verdict-display ' + result.verdict;
-    Draw.drawFeedback(result.outsidePixels);
-    const debugToggle = document.getElementById('debug-bbox-toggle');
-    if (debugToggle && debugToggle.checked && typeof Draw.drawDebugBoxes === 'function') {
-      Draw.drawDebugBoxes(result.debug);
-    }
-    const gradingDebugToggle = document.getElementById('grading-debug-toggle');
-    const panel = document.getElementById('grading-debug-panel');
-    if (panel) {
-      if (gradingDebugToggle && gradingDebugToggle.checked) {
-        const inside = result.inside ?? 0;
-        const outside = result.outside ?? 0;
-        const total = inside + outside || 1;
-        const outsideRate = result.outsideRate ?? (outside / total);
-        const coverage = result.coverage ?? 0;
-        const lengthGate = result.lengthGate ?? 0;
-        const lengthTotal = result.lengthTotal ?? 0;
-        const baseScore = result.baseScore ?? 0;
-        const finalScore = result.score ?? 0;
-        panel.textContent =
-          `inside: ${inside} / outside: ${outside} (rate: ${(outsideRate * 100).toFixed(1)}%)\n` +
-          `coverage: ${(coverage * 100).toFixed(1)}%\n` +
-          `length: 実測 ${lengthTotal.toFixed(1)} / 閾値 ${lengthGate.toFixed(1)}\n` +
-          `baseScore: ${baseScore} / finalScore: ${finalScore}`;
-        if (typeof Draw.drawClassificationOverlay === 'function') {
-          Draw.drawClassificationOverlay(result.insidePixels, result.outsidePixels);
-        }
-      } else {
-        panel.textContent = '';
+
+    function applyResult(result) {
+      vEl.textContent = `${result.message}（${result.score}点）`;
+      vEl.className = 'verdict-display ' + result.verdict;
+      Draw.drawFeedback(result.outsidePixels);
+      const debugToggle = document.getElementById('debug-bbox-toggle');
+      if (debugToggle && debugToggle.checked && typeof Draw.drawDebugBoxes === 'function') {
+        Draw.drawDebugBoxes(result.debug);
       }
+      const gradingDebugToggle = document.getElementById('grading-debug-toggle');
+      const panel = document.getElementById('grading-debug-panel');
+      if (panel) {
+        if (gradingDebugToggle && gradingDebugToggle.checked) {
+          const inside = result.inside ?? 0;
+          const outside = result.outside ?? 0;
+          const total = inside + outside || 1;
+          const outsideRate = result.outsideRate ?? (outside / total);
+          const coverage = result.coverage ?? 0;
+          const lengthGate = result.lengthGate ?? 0;
+          const lengthTotal = result.lengthTotal ?? 0;
+          const baseScore = result.baseScore ?? 0;
+          const finalScore = result.score ?? 0;
+          panel.textContent =
+            `inside: ${inside} / outside: ${outside} (rate: ${(outsideRate * 100).toFixed(1)}%)\n` +
+            `coverage: ${(coverage * 100).toFixed(1)}%\n` +
+            `length: 実測 ${lengthTotal.toFixed(1)} / 閾値 ${lengthGate.toFixed(1)}\n` +
+            `baseScore: ${baseScore} / finalScore: ${finalScore}`;
+          if (typeof Draw.drawClassificationOverlay === 'function') {
+            Draw.drawClassificationOverlay(result.insidePixels, result.outsidePixels);
+          }
+        } else {
+          panel.textContent = '';
+        }
+      }
+      updateProgressOnCheck(currentKana, result.score);
+      const record = {
+        timestamp: Date.now(),
+        kana: currentKana,
+        romaji: data ? data.romaji : templateInfo.romaji,
+        difficulty: document.getElementById('difficulty')?.value || 'trace',
+        settings: {
+          zoneWidth: parseInt(document.getElementById('zone-width')?.value || '20', 10),
+          smoothing: parseFloat(document.getElementById('smoothing')?.value || '0.5'),
+          passLine: parseInt(document.getElementById('pass-line')?.value || '70', 10)
+        },
+        score: result.score,
+        verdict: result.verdict,
+        strokes: strokesData.map(s => ({ points: compressPoints(s.points, 300) })),
+        canvasWidth: templateInfo.width,
+        canvasHeight: templateInfo.height,
+        templateRomaji: templateInfo.romaji,
+        templateLayout: { font: templateInfo.font, fontSize: templateInfo.fontSize, textX: templateInfo.textX, textY: templateInfo.textY }
+      };
+      addRecord(record).then(() => {
+        refreshHistoryPreviewIfVisible();
+      }).catch(err => {
+        showError('practice-error', '履歴の保存に失敗しました: ' + (err.message || err));
+      });
     }
 
-    // 達成状況を更新（この文字のベストスコア）
-    updateProgressOnCheck(currentKana, result.score);
-
-    const record = {
-      timestamp: Date.now(),
-      kana: currentKana,
-      romaji: data ? data.romaji : templateInfo.romaji,
-      difficulty: document.getElementById('difficulty')?.value || 'trace',
-      settings: {
-        zoneWidth: parseInt(document.getElementById('zone-width')?.value || '20', 10),
-        smoothing: parseFloat(document.getElementById('smoothing')?.value || '0.5'),
-        passLine: parseInt(document.getElementById('pass-line')?.value || '70', 10)
-      },
-      score: result.score,
-      verdict: result.verdict,
-      strokes: strokesData.map(s => ({ points: compressPoints(s.points, 300) })),
-      canvasWidth: templateInfo.width,
-      canvasHeight: templateInfo.height,
-      templateRomaji: templateInfo.romaji,
-      templateLayout: { font: templateInfo.font, fontSize: templateInfo.fontSize, textX: templateInfo.textX, textY: templateInfo.textY }
-    };
-
-    addRecord(record).then(() => {
-      refreshHistoryPreviewIfVisible();
-    }).catch(err => {
-      showError('practice-error', '履歴の保存に失敗しました: ' + (err.message || err));
-    });
+    const ocrCanvas = typeof Draw.getImageForOCR === 'function' ? Draw.getImageForOCR() : null;
+    if (ocrCanvas && typeof Tesseract !== 'undefined' && Tesseract.recognize) {
+      vEl.textContent = '認識中...';
+      vEl.className = 'verdict-display';
+      Tesseract.recognize(ocrCanvas, 'eng', { logger: function () {} })
+        .then(function (ocrResult) {
+          const ocrText = (ocrResult && ocrResult.data && ocrResult.data.text) ? ocrResult.data.text.trim() : '';
+          const result = Grading.grade(strokesData, templateInfo, passLine, { difficulty: difficulty, ocrText: ocrText });
+          applyResult(result);
+        })
+        .catch(function () {
+          const result = Grading.grade(strokesData, templateInfo, passLine, { difficulty: difficulty });
+          applyResult(result);
+        });
+      return;
+    }
+    const result = Grading.grade(strokesData, templateInfo, passLine, { difficulty });
+    applyResult(result);
   }
 
   function doNext() {

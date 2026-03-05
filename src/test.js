@@ -209,28 +209,16 @@
     document.getElementById('test-check-btn').addEventListener('click', doCheck);
   }
 
-  function doCheck() {
-    const q = questionList[currentIndex];
-    if (!q || typeof Draw === 'undefined' || typeof Grading === 'undefined') return;
-
-    const strokesData = Draw.getStrokes();
-    const templateInfo = Draw.getTemplateForGrading();
-    const passLine = parseInt(document.getElementById('test-pass-line')?.value || '70', 10);
-    const difficulty = document.getElementById('test-difficulty')?.value || 'trace';
-    const result = Grading.grade(strokesData, templateInfo, passLine, { difficulty });
-
+  function applyTestCheckResult(result, strokesData, templateInfo, q) {
     testResults.push({ kana: q.kana, romaji: q.romaji, score: result.score, verdict: result.verdict });
-
     const vEl = document.getElementById('test-verdict');
     vEl.textContent = `${result.message}（${result.score}点）`;
     vEl.className = 'verdict-display ' + result.verdict;
-
     Draw.drawFeedback(result.outsidePixels);
     const debugToggle = document.getElementById('test-debug-bbox');
     if (debugToggle && debugToggle.checked && typeof Draw.drawDebugBoxes === 'function') {
       Draw.drawDebugBoxes(result.debug);
     }
-
     const record = {
       timestamp: Date.now(),
       kana: q.kana,
@@ -249,9 +237,38 @@
       templateRomaji: templateInfo.romaji,
       templateLayout: { font: templateInfo.font, fontSize: templateInfo.fontSize, textX: templateInfo.textX, textY: templateInfo.textY }
     };
-    addRecord(record).catch(() => {});
-
+    addRecord(record).catch(function () {});
     document.getElementById('test-next-btn').classList.remove('hidden');
+  }
+
+  function doCheck() {
+    const q = questionList[currentIndex];
+    if (!q || typeof Draw === 'undefined' || typeof Grading === 'undefined') return;
+
+    const strokesData = Draw.getStrokes();
+    const templateInfo = Draw.getTemplateForGrading();
+    const passLine = parseInt(document.getElementById('test-pass-line')?.value || '70', 10);
+    const difficulty = document.getElementById('test-difficulty')?.value || 'trace';
+    const vEl = document.getElementById('test-verdict');
+
+    const ocrCanvas = typeof Draw.getImageForOCR === 'function' ? Draw.getImageForOCR() : null;
+    if (ocrCanvas && typeof Tesseract !== 'undefined' && Tesseract.recognize) {
+      vEl.textContent = '認識中...';
+      vEl.className = 'verdict-display';
+      Tesseract.recognize(ocrCanvas, 'eng', { logger: function () {} })
+        .then(function (ocrResult) {
+          const ocrText = (ocrResult && ocrResult.data && ocrResult.data.text) ? ocrResult.data.text.trim() : '';
+          const result = Grading.grade(strokesData, templateInfo, passLine, { difficulty: difficulty, ocrText: ocrText });
+          applyTestCheckResult(result, strokesData, templateInfo, q);
+        })
+        .catch(function () {
+          const result = Grading.grade(strokesData, templateInfo, passLine, { difficulty: difficulty });
+          applyTestCheckResult(result, strokesData, templateInfo, q);
+        });
+      return;
+    }
+    const result = Grading.grade(strokesData, templateInfo, passLine, { difficulty });
+    applyTestCheckResult(result, strokesData, templateInfo, q);
   }
 
   function goNext() {

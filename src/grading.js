@@ -211,16 +211,35 @@
     result.score = Math.round(finalScore);
 
     // 別の文字として読まれたら50点を超えられない
-    if (result.score > 49) {
-      const correctLetter = (templateInfo.letter || (templateInfo.romaji && templateInfo.romaji[0]) || '').toLowerCase();
-      const correctInside = maskResult.inside;
-      const alts = getConfusableLetters(correctLetter);
-      for (let k = 0; k < alts.length; k++) {
-        const altInside = countInsideForLetter(evalPoints, templateInfo, alts[k], maskW, maskH);
-        if (altInside >= correctInside) {
+    // (1) OCR で読み取った文字が正解と異なる場合はキャップ
+    if (result.score > 49 && options && options.ocrText !== undefined) {
+      const ocrNorm = (options.ocrText || '').trim().toLowerCase().replace(/\s/g, '');
+      const expectedLetter = (templateInfo.letter || (templateInfo.romaji && templateInfo.romaji[0]) || '').toLowerCase();
+      if (ocrNorm.length > 0 && expectedLetter && /^[a-z]$/.test(expectedLetter)) {
+        const ocrFirst = ocrNorm[0];
+        if (ocrFirst !== expectedLetter) {
           result.score = Math.min(result.score, 49);
           result.message = '別の文字に読まれました';
-          break;
+        }
+      }
+    }
+    // (2) マスク一致のみのとき：混同しやすい文字のマスク比較（OCR 未使用時用）
+    if (result.score > 49 && (!options || options.ocrText === undefined)) {
+      const correctLetter = (templateInfo.letter || (templateInfo.romaji && templateInfo.romaji[0]) || '').toLowerCase();
+      if (correctLetter && /^[a-z]$/.test(correctLetter)) {
+        const correctInside = maskResult.inside;
+        const alts = getConfusableLetters(correctLetter);
+        const INSIDE_RATE_GATE = 0.9;
+        const ALT_MARGIN_FACTOR = 1.12;
+        if (insideRate < INSIDE_RATE_GATE && correctInside >= 30) {
+          for (let k = 0; k < alts.length; k++) {
+            const altInside = countInsideForLetter(evalPoints, templateInfo, alts[k], maskW, maskH);
+            if (altInside > correctInside * ALT_MARGIN_FACTOR) {
+              result.score = Math.min(result.score, 49);
+              result.message = '別の文字に読まれました';
+              break;
+            }
+          }
         }
       }
     }
