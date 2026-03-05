@@ -211,12 +211,13 @@
     result.score = Math.round(finalScore);
 
     // 別の文字として読まれたら50点を超えられない（判定は OCR のみを使用）
-    // OCR で読み取った文字が正解と異なる場合はキャップ
+    // OCR の生テキストから「a〜z だけ」を取り出し、1文字だけ確定できたときだけ別文字扱いする
     if (result.score > 49 && options && options.ocrText !== undefined) {
-      const ocrNorm = (options.ocrText || '').trim().toLowerCase().replace(/\s/g, '');
+      const raw = (options.ocrText || '').trim().toLowerCase();
+      const lettersOnly = raw.replace(/[^a-z]/g, '');
       const expectedLetter = (templateInfo.letter || (templateInfo.romaji && templateInfo.romaji[0]) || '').toLowerCase();
-      if (ocrNorm.length > 0 && expectedLetter && /^[a-z]$/.test(expectedLetter)) {
-        const ocrFirst = ocrNorm[0];
+      if (lettersOnly.length === 1 && expectedLetter && /^[a-z]$/.test(expectedLetter)) {
+        const ocrFirst = lettersOnly[0];
         if (ocrFirst !== expectedLetter) {
           result.score = Math.min(result.score, 49);
           result.message = '別の文字に読まれました';
