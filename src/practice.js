@@ -117,6 +117,55 @@
   }
 
   /**
+   * Tesseract.js の結果から「生テキスト」「1文字のアルファベット候補」「その信頼度」を取り出す
+   * - 記号や数字は無視
+   * - symbols があればそこから、なければ words / text から推定
+   */
+  function extractOcrInfo(ocrResult) {
+    const info = { text: '', letter: '', confidence: 0 };
+    if (!ocrResult || !ocrResult.data) return info;
+    const data = ocrResult.data;
+    info.text = (data.text || '').trim();
+
+    function pushLetter(ch, conf) {
+      if (!ch) return;
+      const l = String(ch).toLowerCase();
+      if (!/^[a-z]$/.test(l)) return;
+      const c = (typeof conf === 'number' && isFinite(conf)) ? conf : 0;
+      if (!info.letter || c > info.confidence) {
+        info.letter = l;
+        info.confidence = c;
+      }
+    }
+
+    if (Array.isArray(data.symbols) && data.symbols.length > 0) {
+      data.symbols.forEach(sym => {
+        const ch = sym.text || sym.symbol || '';
+        pushLetter(ch, sym.confidence);
+      });
+    } else if (Array.isArray(data.words) && data.words.length > 0) {
+      data.words.forEach(word => {
+        const text = word.text || '';
+        const conf = word.confidence;
+        for (let i = 0; i < text.length; i++) {
+          pushLetter(text[i], conf);
+        }
+      });
+    }
+
+    if (!info.letter && info.text) {
+      const lettersOnly = info.text.toLowerCase().replace(/[^a-z]/g, '');
+      if (lettersOnly.length === 1) {
+        info.letter = lettersOnly[0];
+        const avgConf = (typeof data.confidence === 'number' && isFinite(data.confidence)) ? data.confidence : 0;
+        info.confidence = avgConf;
+      }
+    }
+
+    return info;
+  }
+
+  /**
    * 現在のストロークをポイントJSONとしてダウンロード
    */
   function exportPointsJson() {
@@ -391,8 +440,13 @@
       vEl.className = 'verdict-display';
       Tesseract.recognize(ocrCanvas, 'eng', { logger: function () {} })
         .then(function (ocrResult) {
-          const ocrText = (ocrResult && ocrResult.data && ocrResult.data.text) ? ocrResult.data.text.trim() : '';
-          const result = Grading.grade(strokesData, templateInfo, passLine, { difficulty: difficulty, ocrText: ocrText });
+          const ocrInfo = extractOcrInfo(ocrResult);
+          const result = Grading.grade(strokesData, templateInfo, passLine, {
+            difficulty: difficulty,
+            ocrText: ocrInfo.text,
+            ocrLetter: ocrInfo.letter,
+            ocrConfidence: ocrInfo.confidence
+          });
           applyResult(result);
         })
         .catch(function () {

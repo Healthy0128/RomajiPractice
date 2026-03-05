@@ -211,23 +211,46 @@
     result.score = Math.round(finalScore);
 
     // 別の文字として読まれたら50点を超えられない（判定は OCR のみを使用）
-    // OCR の生テキストから「a〜z だけ」を取り出し、1文字だけ確定できたときだけ別文字扱いする
-    if (result.score > 49 && options && options.ocrText !== undefined) {
-      const raw = (options.ocrText || '').trim().toLowerCase();
-      const lettersOnly = raw.replace(/[^a-z]/g, '');
+    // - OCR 結果から抽出したアルファベット1文字（ocrLetter）があり
+    // - その信頼度（ocrConfidence）が十分高い場合だけ、
+    //   正解の1文字と違えば「別の文字」とみなして 49 点にキャップする
+    if (result.score > 49 && options && (options.ocrLetter !== undefined || options.ocrText !== undefined)) {
       const expectedLetter = (templateInfo.letter || (templateInfo.romaji && templateInfo.romaji[0]) || '').toLowerCase();
-      if (lettersOnly.length === 1 && expectedLetter && /^[a-z]$/.test(expectedLetter)) {
-        const ocrFirst = lettersOnly[0];
-        if (ocrFirst !== expectedLetter) {
-          result.score = Math.min(result.score, 49);
-          result.message = '別の文字に読まれました';
+      if (expectedLetter && /^[a-z]$/.test(expectedLetter)) {
+        let ocrLetter = '';
+        let conf = 0;
+        if (options.ocrLetter) {
+          const l = String(options.ocrLetter).toLowerCase();
+          if (/^[a-z]$/.test(l)) {
+            ocrLetter = l;
+            if (typeof options.ocrConfidence === 'number' && isFinite(options.ocrConfidence)) {
+              conf = options.ocrConfidence;
+            }
+          }
+        }
+        // 互換性のため、ocrLetter が無い場合は生テキストから1文字だけ推定
+        if (!ocrLetter && options.ocrText !== undefined) {
+          const raw = (options.ocrText || '').trim().toLowerCase();
+          const lettersOnly = raw.replace(/[^a-z]/g, '');
+          if (lettersOnly.length === 1) {
+            ocrLetter = lettersOnly[0];
+          }
+        }
+        const CONF_GATE = 75;
+        if (ocrLetter && (conf === 0 || conf >= CONF_GATE)) {
+          if (ocrLetter !== expectedLetter) {
+            result.score = Math.min(result.score, 49);
+            result.message = '別の文字に読まれました';
+          }
         }
       }
     }
 
     // デバッグ用に内訳を保持
-    if (options && typeof options === 'object' && options.ocrText !== undefined) {
-      result.ocrText = options.ocrText;
+    if (options && typeof options === 'object') {
+      if (options.ocrText !== undefined) result.ocrText = options.ocrText;
+      if (options.ocrLetter !== undefined) result.ocrLetter = options.ocrLetter;
+      if (options.ocrConfidence !== undefined) result.ocrConfidence = options.ocrConfidence;
     }
     result.outsideRate = outsideRate;
     result.coverage = coverage;
