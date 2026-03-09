@@ -1,0 +1,50 @@
+{
+  "timestamp": "2026-03-09T21:36:16.995Z",
+  "practiceVerdict": "線が短すぎます (0?)",
+  "testVerdict": "どれか1枠が0点です (0 点) / OCR: n, -",
+  "historyCount": 2,
+  "downloadCount": 2,
+  "severeErrors": [],
+  "sampleLogs": [
+    {
+      "type": "log",
+      "text": "[OCR][Practice] start {kind: single, canvas: Object}"
+    },
+    {
+      "type": "log",
+      "text": "[OCR][Practice] done {kind: single, letter: , confidence: 0, alphaLength: 0, source: none}"
+    },
+    {
+      "type": "log",
+      "text": "[OCR][Practice] grading-input {kind: single, letter: , confidence: 0, alphaLength: 0, source: none}"
+    },
+    {
+      "type": "log",
+      "text": "[TestCanvas] after initCanvas {canvasClient: Object, canvasIntrinsic: Object, wrapClient: Object}"
+    },
+    {
+      "type": "log",
+      "text": "[TestCanvas] showCurrentQuestion {canvasClient: Object, canvasIntrinsic: Object, wrapClient: Object}"
+    },
+    {
+      "type": "log",
+      "text": "[OCR][Test] start {kind: multi, boxIndex: 0, canvas: Object}"
+    },
+    {
+      "type": "log",
+      "text": "[OCR][Test] start {kind: multi, boxIndex: 1, canvas: Object}"
+    },
+    {
+      "type": "log",
+      "text": "[OCR][Test] done {kind: multi, boxIndex: 1, letter: , confidence: 0, alphaLength: 0}"
+    },
+    {
+      "type": "log",
+      "text": "[OCR][Test] done {kind: multi, boxIndex: 0, letter: n, confidence: 94.4713363647461, alphaLength: 2}"
+    },
+    {
+      "type": "log",
+      "text": "[OCR][Test] grading-input {kind: multi, ocrPerBox: Array(2)}"
+    }
+  ]
+}

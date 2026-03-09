@@ -1,6 +1,6 @@
-/* ========================================
-   ひらがな→ローマ字 手書き練習
-   Teachers フォント + レスポンシブ
+﻿/* ========================================
+   縺ｲ繧峨′縺ｪ竊偵Ο繝ｼ繝槫ｭ・謇区嶌縺咲ｷｴ鄙・
+   Teachers 繝輔か繝ｳ繝・+ 繝ｬ繧ｹ繝昴Φ繧ｷ繝・
    ======================================== */
 
 @font-face {
@@ -69,7 +69,7 @@ html, body {
   min-height: 100vh;
 }
 
-/* 各画面の表示切り替え */
+/* 蜷・判髱｢縺ｮ陦ｨ遉ｺ蛻・ｊ譖ｿ縺・*/
 .view {
   display: none;
   flex-direction: column;
@@ -80,7 +80,7 @@ html, body {
   display: flex;
 }
 
-/* ヘッダー */
+/* 繝倥ャ繝繝ｼ */
 .header {
   padding: 1rem 1.25rem;
   background: white;
@@ -121,7 +121,7 @@ html, body {
   background: #e2e8f0;
 }
 
-/* ホーム画面 */
+/* 繝帙・繝逕ｻ髱｢ */
 #home-view {
   padding: 2rem 1rem;
   align-items: center;
@@ -162,7 +162,7 @@ html, body {
   margin-top: 0.25rem;
 }
 
-/* 練習画面：2カラム・画面全体スクロール不要 */
+/* 邱ｴ鄙堤判髱｢・・繧ｫ繝ｩ繝繝ｻ逕ｻ髱｢蜈ｨ菴薙せ繧ｯ繝ｭ繝ｼ繝ｫ荳崎ｦ・*/
 .practice-view-layout {
   height: calc(var(--vh) * 100);
   overflow: hidden;
@@ -412,13 +412,13 @@ html, body {
   border-color: var(--primary);
 }
 
-/* 達成状況（bestScore に応じて着色） */
-.char-btn.achieved80 {
+/* 達成度表示（70=基本クリア / 80=上位クリア） */
+.char-btn.achieved70 {
   background: #e8f9ee;
   border-color: #8bd3a6;
 }
 
-.char-btn.achieved90::after {
+.char-btn.achieved80::after {
   content: "★";
   position: absolute;
   top: 3px;
@@ -427,16 +427,16 @@ html, body {
   color: #f59e0b;
 }
 
-/* 達成済みかつ選択中: 枠線は青、背景にうっすら緑を残す */
-.char-btn.active.achieved80 {
+.char-btn.active.achieved70 {
   background: linear-gradient(135deg, #e8f9ee, #dbeafe);
   color: #1e293b;
   border-color: var(--primary);
 }
 
-.char-btn.active.achieved90::after {
+.char-btn.active.achieved80::after {
   content: "★";
 }
+
 
 .char-cell-empty {
   width: 2.5rem;
@@ -483,7 +483,7 @@ html, body {
   background: #fff;
   border-radius: var(--radius);
   overflow: hidden;
-  touch-action: none; /* スクロール誤爆対策 */
+  touch-action: none; /* 繧ｹ繧ｯ繝ｭ繝ｼ繝ｫ隱､辷・ｯｾ遲・*/
 }
 
 #draw-canvas,
@@ -566,7 +566,7 @@ html, body {
   color: var(--danger);
 }
 
-/* エラーメッセージ */
+/* 繧ｨ繝ｩ繝ｼ繝｡繝・そ繝ｼ繧ｸ */
 .error-message {
   padding: 0.75rem;
   margin-top: 1rem;
@@ -580,7 +580,7 @@ html, body {
   display: none;
 }
 
-/* テスト画面 */
+/* 繝・せ繝育判髱｢ */
 .test-view-layout {
   height: calc(var(--vh) * 100);
   overflow: hidden;
@@ -667,7 +667,7 @@ html, body {
   touch-action: none;
 }
 
-/* iOS Safari などでのテキスト選択・コールアウト抑止 */
+/* iOS Safari 縺ｪ縺ｩ縺ｧ縺ｮ繝・く繧ｹ繝磯∈謚槭・繧ｳ繝ｼ繝ｫ繧｢繧ｦ繝域椛豁｢ */
 canvas,
 .canvas-container,
 .test-canvas-container,
@@ -702,7 +702,7 @@ canvas,
   margin: 0.25rem;
 }
 
-/* 履歴画面 */
+/* 螻･豁ｴ逕ｻ髱｢ */
 .history-content {
   flex: 1;
   padding: 1rem;
@@ -837,7 +837,7 @@ canvas,
   gap: 0.5rem;
 }
 
-/* タブレット・デスクトップ */
+/* 繧ｿ繝悶Ξ繝・ヨ繝ｻ繝・せ繧ｯ繝医ャ繝・*/
 @media (min-width: 600px) {
   .home-nav {
     flex-direction: row;
@@ -891,10 +891,10 @@ canvas,
   50% { transform: translateY(-1px); }
 }
 
-.verdict-display.celebrate80 {
+.verdict-display.celebrate70 {
   animation: scorePop 280ms ease-out;
 }
-.verdict-display.celebrate90 {
+.verdict-display.celebrate80 {
   animation: scorePop 320ms ease-out;
   box-shadow: inset 0 0 0 2px rgba(245, 158, 11, 0.45);
 }
@@ -916,16 +916,14 @@ canvas,
   line-height: 1;
   padding: 2px 4px;
 }
-.char-btn.achieved80 {
+.char-btn.achieved70 {
   box-shadow: inset 0 0 0 2px rgba(22, 163, 74, 0.35);
 }
-.char-btn.achieved90 {
+.char-btn.achieved80 {
   background: linear-gradient(145deg, #fff7ed, #ecfeff);
   box-shadow: inset 0 0 0 2px rgba(245, 158, 11, 0.45);
 }
-.char-btn.score-pop {
-  animation: badgePop 360ms ease-out;
-}
+
 @keyframes badgePop {
   0% { transform: scale(1); }
   40% { transform: scale(1.08); }
@@ -1034,4 +1032,19 @@ canvas,
   .practice-history-preview {
     width: min(82%, 320px);
   }
+}
+
+
+.action-btn {
+  position: relative;
+  z-index: 20;
+}
+
+.action-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.practice-buttons .action-btn {
+  min-height: 44px;
 }

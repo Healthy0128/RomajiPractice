@@ -1,0 +1,24 @@
+{
+  "name": "romajipractice",
+  "version": "1.0.0",
+  "description": "特別支援で書字に困難を持つ子も含め、成功体験を作れる調整幅を持った手書き練習アプリです。静的サイトとして完結し、GitHub Pages にそのまま公開できます。",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Healthy0128/RomajiPractice.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/Healthy0128/RomajiPractice/issues"
+  },
+  "homepage": "https://github.com/Healthy0128/RomajiPractice#readme",
+  "dependencies": {
+    "playwright": "^1.58.2"
+  }
+}

@@ -168,7 +168,7 @@
       advanced.id = 'test-advanced-settings';
       advanced.className = 'settings-details';
       const summary = document.createElement('summary');
-      summary.textContent = 'Advanced settings';
+      summary.textContent = '????';
       advanced.appendChild(summary);
 
       const rows = Array.from(testConfig.querySelectorAll('.test-config-row'));
@@ -185,7 +185,7 @@
       const d = document.createElement('details');
       d.className = 'debug-details';
       const sum = document.createElement('summary');
-      sum.textContent = 'Debug';
+      sum.textContent = '????';
       d.appendChild(sum);
       debugToggle.parentNode.insertBefore(d, debugToggle);
       d.appendChild(debugToggle);
@@ -208,8 +208,8 @@
     if (!hint || !result) return;
     const improve = (result.reasonUserList && result.reasonUserList.length)
       ? result.reasonUserList[result.reasonUserList.length - 1]
-      : 'Try a slight position adjustment on the next character.';
-    hint.textContent = 'Tip: ' + improve;
+      : '???????????????';
+    hint.textContent = '???: ' + improve;
   }
 
   function bindTestConfig() {
@@ -247,7 +247,7 @@
       list = shuffle(list).slice(0, count);
     } else {
       if (selectedKanaForSelect.length === 0) {
-        showError('test-error', '蜃ｺ鬘後☆繧区枚蟄励ｒ1縺､莉･荳企∈繧薙〒縺上□縺輔＞');
+        showError('test-error', '???????1??????????');
         return;
       }
       list = selectedKanaForSelect.map(k => getKanaData(k)).filter(Boolean);
@@ -255,7 +255,7 @@
     }
 
     if (list.length === 0) {
-      showError('test-error', '蜃ｺ鬘後〒縺阪ｋ譁・ｭ励′縺ゅｊ縺ｾ縺帙ｓ');
+      showError('test-error', '?????????????');
       return;
     }
 
@@ -330,7 +330,7 @@
     document.getElementById('test-verdict').textContent = '';
     document.getElementById('test-verdict').className = 'verdict-display';
     const prog = document.getElementById('test-progress');
-    if (prog) prog.textContent = `蝠城｡・${currentIndex + 1} / ${questionList.length}`;
+    if (prog) prog.textContent = `\u554f\u984c ${currentIndex + 1} / ${questionList.length}`;
   }
 
   /**
@@ -368,7 +368,7 @@
     const vEl = document.getElementById('test-verdict');
     const ocrInfo = result.ocrText != null && result.ocrText !== ''
       ? ` / OCR: ${String(result.ocrText)}`
-      : '';
+      : ' / OCR: ????';
     const userMsg = result.userMessage || result.message || '';
     vEl.textContent = userMsg + ' (' + result.score + ' ' + '\u70b9)' + ocrInfo;
     vEl.className = 'verdict-display ' + result.verdict;
@@ -391,7 +391,7 @@
       if (nextBtn) {
         nextBtn.classList.remove('hidden');
         nextBtn.classList.toggle('next-suggest', result.score >= parseInt(document.getElementById('test-pass-line')?.value || '70', 10));
-        nextBtn.textContent = result.score >= parseInt(document.getElementById('test-pass-line')?.value || '70', 10) ? 'Next >' : 'Next';
+        nextBtn.textContent = result.score >= parseInt(document.getElementById('test-pass-line')?.value || '70', 10) ? '\u6b21\u3078 >' : '\u6b21\u3078';
       }
       return;
     }
@@ -419,7 +419,7 @@
     if (nextBtn) {
       nextBtn.classList.remove('hidden');
       nextBtn.classList.toggle('next-suggest', result.score >= parseInt(document.getElementById('test-pass-line')?.value || '70', 10));
-      nextBtn.textContent = result.score >= parseInt(document.getElementById('test-pass-line')?.value || '70', 10) ? 'Next >' : 'Next';
+      nextBtn.textContent = result.score >= parseInt(document.getElementById('test-pass-line')?.value || '70', 10) ? '\u6b21\u3078 >' : '\u6b21\u3078';
     }
   }
 
@@ -460,7 +460,7 @@
     const hasTesseract = typeof Tesseract !== 'undefined' && Tesseract.recognize;
 
     if (multiBox && hasTesseract) {
-      vEl.textContent = 'Recognizing...';
+      vEl.textContent = '\u5224\u5b9a\u4e2d\u3067\u3059...';
       vEl.className = 'verdict-display';
       const promises = boxes.map(function (_, i) {
         const canvas = Draw.getImageForOCRBox(i);
@@ -511,7 +511,7 @@
 
     const ocrCanvas = typeof Draw.getImageForOCR === 'function' ? Draw.getImageForOCR() : null;
     if (ocrCanvas && hasTesseract) {
-      vEl.textContent = 'Recognizing...';
+      vEl.textContent = '\u5224\u5b9a\u4e2d\u3067\u3059...';
       vEl.className = 'verdict-display';
       logOcrTrace('start', { kind: 'single', canvas: getOcrCanvasStats(ocrCanvas) });
       Tesseract.recognize(ocrCanvas, 'eng', { logger: function () {} })
@@ -575,18 +575,18 @@
     const wrongList = testResults.filter(r => r.verdict !== 'green');
 
     const summaryEl = document.getElementById('test-result-summary');
-    if (summaryEl) summaryEl.textContent = `豁｣遲疲焚: ${correctCount} / ${total}`;
+    if (summaryEl) summaryEl.textContent = `\u6b63\u89e3\u6570: ${correctCount} / ${total}`;
 
     const avgEl = document.getElementById('test-result-average');
-    if (avgEl) avgEl.textContent = `蟷ｳ蝮・せ繧ｳ繧｢: ${avg}轤ｹ`;
+    if (avgEl) avgEl.textContent = `\u5e73\u5747\u30b9\u30b3\u30a2: ${avg}\u70b9`;
 
     const wrongContainer = document.getElementById('test-wrong-list');
     if (wrongContainer) {
       wrongContainer.innerHTML = '';
       if (wrongList.length === 0) {
-        wrongContainer.innerHTML = '<p class="muted">蜈ｨ蝠乗ｭ｣隗｣縺ｧ縺呻ｼ・/p>';
+        wrongContainer.innerHTML = '<p class="muted">??????</p>';
       } else {
-        wrongContainer.innerHTML = '<p>髢馴＆縺医◆譁・ｭ・</p>';
+        wrongContainer.innerHTML = '<p>??????</p>';
         wrongList.forEach(r => {
           const btn = document.createElement('button');
           btn.className = 'action-btn char-btn';

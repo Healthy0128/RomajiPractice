@@ -45,11 +45,11 @@
   function applyProgressStyles(btn, kana) {
     if (!btn || !kana) return;
     ensureProgressLoaded();
-    btn.classList.remove('achieved80', 'achieved90');
+    btn.classList.remove('achieved70', 'achieved80');
     const rec = progressMap[kana];
     if (!rec || typeof rec.bestScore !== 'number') return;
+    if (rec.bestScore >= 70) btn.classList.add('achieved70');
     if (rec.bestScore >= 80) btn.classList.add('achieved80');
-    if (rec.bestScore >= 90) btn.classList.add('achieved90');
   }
 
   function refreshAllProgressStyles() {
@@ -229,6 +229,70 @@
     URL.revokeObjectURL(url);
   }
 
+  
+
+  function getBestScoreMapForExport() {
+    ensureProgressLoaded();
+    const map = {};
+    Object.keys(progressMap || {}).forEach(function (kana) {
+      const rec = progressMap[kana];
+      if (rec && typeof rec.bestScore === 'number' && isFinite(rec.bestScore)) map[kana] = rec.bestScore;
+    });
+    return map;
+  }
+
+  function exportCharacterGradesJson() {
+    const bestMap = getBestScoreMapForExport();
+    const records = (KANA_DATA || []).filter(function (d) { return d && d.romaji && !/^\(/.test(String(d.romaji)); }).map(function (d) {
+      const best = Math.max(0, Math.round(bestMap[d.kana] || 0));
+      return {
+        character: d.romaji,
+        category: d.category || 'other',
+        bestScore: best,
+        clear70: best >= 70,
+        clear80: best >= 80,
+        lastUpdated: new Date().toISOString()
+      };
+    });
+    const payload = { timestamp: new Date().toISOString(), records: records };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'character_grades_' + Date.now() + '.json';
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function exportStudXpJson() {
+    const bestMap = getBestScoreMapForExport();
+    const kanaList = (KANA_DATA || []).filter(function (d) { return d && d.romaji && !/^\(/.test(String(d.romaji)); });
+    let count70 = 0;
+    let count80 = 0;
+    kanaList.forEach(function (d) {
+      const best = Math.max(0, Math.round(bestMap[d.kana] || 0));
+      if (best >= 70) count70++;
+      if (best >= 80) count80++;
+    });
+    const raw = (count70 + count80) / 4;
+      // ?????1?????????
+    const StudXP = Math.round(raw * 10) / 10;
+    const payload = {
+      timestamp: new Date().toISOString(),
+      totalKana: kanaList.length,
+      count70: count70,
+      count80: count80,
+      StudXP: StudXP
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'studxp_' + Date.now() + '.json';
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
   function syncTemplate() {
     const data = getKanaData(currentKana);
     const romajiForDraw = (data && data.romaji && !/^\(/.test(data.romaji)) ? data.romaji : '';
@@ -349,7 +413,9 @@
     }
 
     const exportJsonBtn = document.getElementById('btn-export-json');
-    if (exportJsonBtn) exportJsonBtn.addEventListener('click', exportPointsJson);
+    if (exportJsonBtn) exportJsonBtn.addEventListener('click', exportCharacterGradesJson);
+    const exportStudXpBtn = document.getElementById('btn-export-studxp-json');
+    if (exportStudXpBtn) exportStudXpBtn.addEventListener('click', exportStudXpJson);
 
     const diffEl = document.getElementById('difficulty');
     if (diffEl) {
@@ -362,7 +428,10 @@
     }
 
     const checkBtn = document.getElementById('btn-check');
-    if (checkBtn) checkBtn.addEventListener('click', doCheck);
+    if (checkBtn) {
+      checkBtn.replaceWith(checkBtn.cloneNode(true));
+      document.getElementById('btn-check').addEventListener('click', doCheck);
+    }
     const clearBtn = document.getElementById('btn-clear');
     if (clearBtn) clearBtn.addEventListener('click', () => {
       Draw.resetFade();
@@ -387,13 +456,22 @@
         const block = document.getElementById('practice-history-preview');
         if (!block) return;
         const show = block.classList.toggle('hidden');
-        historyToggle.textContent = show ? '履歴を表示' : '履歴を隠す';
+        historyToggle.textContent = show ? '?????' : '?????';
         if (!show) refreshHistoryPreview();
-        // レイアウト変更後もテンプレ・4線と入力位置が一致するよう安全に同期＋再描画
         if (typeof Draw.syncCanvasToWrap === 'function') Draw.syncCanvasToWrap();
         Draw.redrawAll();
       });
     }
+  }
+
+  // OCR/??????????????????
+  function buildStrokeCheckSignature(strokesData) {
+    return (strokesData || []).map(function (stroke) {
+      const pts = (stroke && stroke.points) ? stroke.points : [];
+      const first = pts[0] || { x: 0, y: 0 };
+      const last = pts[pts.length - 1] || first;
+      return [pts.length, Math.round(first.x), Math.round(first.y), Math.round(last.x), Math.round(last.y)].join(':');
+    }).join('|');
   }
 
   function doCheck() {
@@ -402,45 +480,49 @@
     const checkSeq = ++practiceCheckSeq;
     const checkKana = currentKana;
     const checkBtn = document.getElementById('btn-check');
-    if (checkBtn) checkBtn.disabled = true;
     const nextBtn = document.getElementById('btn-next');
+    if (checkBtn) checkBtn.disabled = true;
     if (nextBtn) nextBtn.disabled = true;
+
+    function finishCheck() {
+      practiceCheckInFlight = false;
+      if (checkBtn) checkBtn.disabled = false;
+      if (nextBtn) nextBtn.disabled = false;
+    }
 
     updateSettings();
     const strokesData = Draw.getStrokes();
     const data = getKanaData(currentKana);
     const templateInfo = Draw.getTemplateForGrading();
     if (!templateInfo.romaji || templateInfo.romaji.length === 0) {
-      showError('practice-error', 'Template is missing for this character');
-      practiceCheckInFlight = false;
-      if (checkBtn) checkBtn.disabled = false;
-      if (nextBtn) nextBtn.disabled = false;
+      showError('practice-error', '????????????????');
+      finishCheck();
       return;
     }
+
     const passLine = parseInt(document.getElementById('pass-line')?.value || '70', 10);
     const difficulty = document.getElementById('difficulty')?.value || 'trace';
     const vEl = document.getElementById('verdict-display');
     const checkSig = currentKana + '|' + difficulty + '|' + buildStrokeCheckSignature(strokesData);
     const now = Date.now();
     if (checkSig === lastPracticeCheckSig && (now - lastPracticeCheckAt) < 1200) {
-      practiceCheckInFlight = false;
-      if (checkBtn) checkBtn.disabled = false;
-      if (nextBtn) nextBtn.disabled = false;
+      finishCheck();
       return;
     }
     lastPracticeCheckSig = checkSig;
     lastPracticeCheckAt = now;
 
     function applyResult(result) {
-      practiceCheckInFlight = false;
-      if (checkBtn) checkBtn.disabled = false;
-      if (nextBtn) nextBtn.disabled = false;
+      finishCheck();
       if (checkSeq !== practiceCheckSeq || checkKana !== currentKana) return;
 
       const userMsg = result.userMessage || result.message || '';
-      vEl.textContent = userMsg + ' (' + result.score + ' pts)';
-      vEl.className = 'verdict-display ' + result.verdict;
+      if (vEl) {
+        vEl.textContent = userMsg + ' (' + result.score + '?)';
+        vEl.className = 'verdict-display ' + result.verdict;
+      }
       Draw.drawFeedback(result.outsidePixels);
+
       const debugToggle = document.getElementById('debug-bbox-toggle');
       if (debugToggle && debugToggle.checked && typeof Draw.drawDebugBoxes === 'function') {
         Draw.drawDebugBoxes(result.debug);
@@ -460,9 +542,7 @@
           const baseScore = result.baseScore ?? 0;
           const finalScore = result.score ?? 0;
           const penalty = result.penalty ?? 0;
-          const ocrInfo = result.ocrText != null && result.ocrText !== ''
-            ? String(result.ocrText)
-            : '(OCR not run or no result)';
+          const ocrInfo = (result.ocrText != null && result.ocrText !== '') ? String(result.ocrText) : 'OCR??';
           const perBoxLine = (result.perBox && result.perBox.length > 0)
             ? 'perBox: ' + result.perBox.map(function (b) { return b.score; }).join(', ') + '\n'
             : '';
@@ -480,23 +560,23 @@
           const devReason = (result.reasonDevList && result.reasonDevList.length > 0)
             ? result.reasonDevList.join(' | ')
             : (result.developerMessage || '(none)');
-          const ocrDecision = result.ocrDecision && result.ocrDecision.mode
-            ? result.ocrDecision.mode
-            : '-';
+          const ocrDecision = result.ocrDecision && result.ocrDecision.decision
+            ? result.ocrDecision.decision
+            : 'none';
           const ocrCap = result.ocrDecision && result.ocrDecision.cap != null
             ? result.ocrDecision.cap
             : '-';
           panel.textContent =
-            '[User] ' + userReason + '\n' +
-            '[Dev] ' + devReason + '\n' +
-            'message: ' + (result.message || '-') + '\n' +
+            '[????????] ' + userReason + '\n' +
+            '[???????] ' + devReason + '\n' +
+            '?????: ' + (result.message || '-') + '\n' +
+            'OCR??: ' + ocrDecision + ' / OCR??: ' + ocrCap + '\n' +
             perBoxLine +
             perBoxOcrLine +
             'inside: ' + inside + ' / outside: ' + outside + ' (rate: ' + (outsideRate * 100).toFixed(1) + '%)\n' +
             'coverage: ' + (coverage * 100).toFixed(1) + '%\n' +
             'length: total ' + lengthTotal.toFixed(1) + ' / gate ' + lengthGate.toFixed(1) + '\n' +
             'baseScore: ' + baseScore + ' / penalty: ' + penalty + ' / finalScore: ' + finalScore + '\n' +
-            'OCR mode: ' + ocrDecision + ' / OCR cap: ' + ocrCap + '\n' +
             'OCR: ' + ocrInfo;
           if (typeof Draw.drawClassificationOverlay === 'function') {
             Draw.drawClassificationOverlay(result.insidePixels, result.outsidePixels);
@@ -527,18 +607,17 @@
         },
         score: result.score,
         verdict: result.verdict,
-        strokes: strokesData.map(s => ({ points: compressPoints(s.points, 300) })),
+        strokes: strokesData.map(function (s) { return { points: compressPoints(s.points, 300) }; }),
         canvasWidth: templateInfo.width,
         canvasHeight: templateInfo.height,
-        templateRomaji: templateInfo.romaji,
-        templateLayout: { font: templateInfo.font, fontSize: templateInfo.fontSize, textX: templateInfo.textX, textY: templateInfo.textY }
+        templateRomaji: templateInfo.romaji
       };
-      addRecord(record).then(() => {
+      addRecord(record).then(function () {
         refreshHistoryPreviewIfVisible();
-      }).catch(err => {
+      }).catch(function (err) {
         lastPracticeSaveSig = '';
         lastPracticeSaveAt = 0;
-        showError('practice-error', 'Failed to save history: ' + (err && err.message ? err.message : err));
+        showError('practice-error', '????????????: ' + (err && err.message ? err.message : err));
       });
     }
 
@@ -546,9 +625,12 @@
     const multiBox = boxes.length > 1 && typeof Draw.getImageForOCRBox === 'function';
     const hasTesseract = typeof Tesseract !== 'undefined' && Tesseract.recognize;
 
-    if (multiBox && hasTesseract) {
-      vEl.textContent = 'Recognizing...';
+    if (vEl) {
+      vEl.textContent = '?????...';
       vEl.className = 'verdict-display';
+    }
+
+    if (multiBox && hasTesseract) {
       const promises = boxes.map(function (_, i) {
         const canvas = Draw.getImageForOCRBox(i);
         const stats = getOcrCanvasStats(canvas);
@@ -596,10 +678,8 @@
       return;
     }
 
-    const ocrCanvas = typeof Draw.getImageForOCR === 'function' ? Draw.getImageForOCR() : null;
+    const ocrCanvas = (typeof Draw.getImageForOCR === 'function') ? Draw.getImageForOCR() : null;
     if (ocrCanvas && hasTesseract) {
-      vEl.textContent = 'Recognizing...';
-      vEl.className = 'verdict-display';
       logOcrTrace('start', { kind: 'single', canvas: getOcrCanvasStats(ocrCanvas) });
       Tesseract.recognize(ocrCanvas, 'eng', { logger: function () {} })
         .then(function (ocrResult) {

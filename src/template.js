@@ -149,7 +149,9 @@
     const sizeScale = 2;
     let fontSize = Math.max(10, Math.floor(writingHeight * 0.95 * sizeScale));
 
-    const maxW = width * 0.9;
+    // ????(m/w)???????????????????????
+    const hasWideLetter = /[mw]/i.test(romaji || "");
+    const maxW = width * (hasWideLetter ? 0.84 : 0.88);
     // 横幅がはみ出す場合のみ縮小
     ctx.font = `${fontSize}px ${FONT_FALLBACK}`;
     let totalWidth = 0;

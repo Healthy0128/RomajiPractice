@@ -1,16 +1,9 @@
-/**
- * data.js - ひらがな・ローマ字（ヘボン式）対応データ
- * 手本は fillText(romaji) で描画するため、画像・SVGパスは不要
- * 全ひらがな（清音・濁音半濁音・拗音・促音）を後から追加できる構造
+﻿/**
+ * data.js - かな/ローマ字データ
  */
 
-/**
- * ひらがな→ローマ字（ヘボン式）
- * category: basic=清音, dakuten=濁音半濁音, yoon=拗音, other=促音長音
- * 描画しないもの（促音・長音）は romaji を "(pause)" / "(long)" など () 付きにするとアプリで手本非表示
- */
 const KANA_DATA = [
-  // 清音（basic）
+  // 清音
   { kana: 'あ', romaji: 'a', category: 'basic' },
   { kana: 'い', romaji: 'i', category: 'basic' },
   { kana: 'う', romaji: 'u', category: 'basic' },
@@ -58,7 +51,7 @@ const KANA_DATA = [
   { kana: 'を', romaji: 'wo', category: 'basic' },
   { kana: 'ん', romaji: 'n', category: 'basic' },
 
-  // 濁音・半濁音（dakuten）
+  // 濁音・半濁音
   { kana: 'が', romaji: 'ga', category: 'dakuten' },
   { kana: 'ぎ', romaji: 'gi', category: 'dakuten' },
   { kana: 'ぐ', romaji: 'gu', category: 'dakuten' },
@@ -85,7 +78,7 @@ const KANA_DATA = [
   { kana: 'ぺ', romaji: 'pe', category: 'dakuten' },
   { kana: 'ぽ', romaji: 'po', category: 'dakuten' },
 
-  // 拗音（yoon）
+  // 拗音
   { kana: 'きゃ', romaji: 'kya', category: 'yoon' },
   { kana: 'きゅ', romaji: 'kyu', category: 'yoon' },
   { kana: 'きょ', romaji: 'kyo', category: 'yoon' },
@@ -120,7 +113,7 @@ const KANA_DATA = [
   { kana: 'ぴゅ', romaji: 'pyu', category: 'yoon' },
   { kana: 'ぴょ', romaji: 'pyo', category: 'yoon' },
 
-  // 促音・長音など（other）
+  // その他（採点対象外記号）
   { kana: 'っ', romaji: '(pause)', category: 'other' },
   { kana: 'ー', romaji: '(long)', category: 'other' }
 ];

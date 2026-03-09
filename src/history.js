@@ -24,7 +24,7 @@
         fillFilterKana();
       })
       .catch(err => {
-        showError('history-error', '螻･豁ｴ縺ｮ隱ｭ縺ｿ霎ｼ縺ｿ縺ｫ螟ｱ謨励＠縺ｾ縺励◆: ' + (err.message || err));
+        showError('history-error', '??????????????: ' + (err.message || err));
       });
   }
 
@@ -33,7 +33,7 @@
     const sel = document.getElementById('filter-kana');
     if (!sel) return;
     const current = sel.value;
-    sel.innerHTML = '<option value="">蜈ｨ縺ｦ縺ｮ縺九↑</option>';
+    sel.innerHTML = '<option value="">??????</option>';
     [...kanaSet].sort().forEach(k => {
       const opt = document.createElement('option');
       opt.value = k;
@@ -64,14 +64,14 @@
     const summary = document.createElement('div');
     summary.className = 'history-summary-card';
     const best = list.reduce((m, r) => Math.max(m, r.score || 0), 0);
-    summary.textContent = 'Records: ' + list.length + ' / Best score: ' + best + ' pts';
+    summary.textContent = '??: ' + list.length + ' / ???: ' + best + '?';
     container.appendChild(summary);
 
     list.forEach(r => {
       const div = document.createElement('div');
       div.className = 'history-item';
       div.dataset.id = r.id;
-      const vLabel = { green: 'Pass', yellow: 'Close', red: 'Retry' }[r.verdict] || '';
+      const vLabel = { green: '??', yellow: '???', red: '????' }[r.verdict] || '';
       const score = Math.max(0, Math.min(100, Math.round(r.score || 0)));
       div.innerHTML =
         '<div class=\"history-item-header\">' +
@@ -79,7 +79,7 @@
           '<span class=\"history-item-verdict ' + (r.verdict || '') + '\">' + vLabel + '</span>' +
         '</div>' +
         '<div class=\"history-item-meta\">' +
-          formatDate(r.timestamp) + ' | ' + escapeHtml(r.romaji) + ' | ' + r.difficulty + ' | ' + score + ' pts' +
+          formatDate(r.timestamp) + ' | ' + escapeHtml(r.romaji) + ' | ' + r.difficulty + ' | ' + score + '?' +
         '</div>' +
         '<div class=\"history-score-track\"><span class=\"history-score-fill\" style=\"width:' + score + '%\"></span></div>';
       div.addEventListener('click', () => showHistoryDetail(r.id));
@@ -97,12 +97,12 @@
     if (infoEl) {
       // Build detail with textContent to avoid HTML/script injection from stored values.
       infoEl.textContent = '';
-      const verdictLabel = { green: 'Pass', yellow: 'Close', red: 'Retry' }[r.verdict] || '';
+      const verdictLabel = { green: '??', yellow: '???', red: '????' }[r.verdict] || '';
       const lines = [
         String(r.kana || '') + ' - ' + String(r.romaji || ''),
-        'Date: ' + formatDate(r.timestamp),
-        'Difficulty: ' + String(r.difficulty || '-') + ' | Score: ' + String(r.score ?? 0) + ' | ' + verdictLabel,
-        'Zone: ' + String(r.settings?.zoneWidth ?? '-') + 'px | Smoothing: ' + String(r.settings?.smoothing ?? '-') + ' | Pass line: ' + String(r.settings?.passLine ?? '-') + '%'
+        '??: ' + formatDate(r.timestamp),
+        '???: ' + String(r.difficulty || '-') + ' | ???: ' + String(r.score ?? 0) + '? | ' + verdictLabel,
+        '?????: ' + String(r.settings?.zoneWidth ?? '-') + 'px | ??: ' + String(r.settings?.smoothing ?? '-') + ' | ?????: ' + String(r.settings?.passLine ?? '-') + '%'
       ];
       lines.forEach(function (line) {
         const p = document.createElement('p');
@@ -169,7 +169,7 @@
     const btnDelAll = document.getElementById('btn-delete-all');
     if (btnDelAll) {
       btnDelAll.addEventListener('click', () => {
-        if (!confirm('Delete all history records?')) return;
+        if (!confirm('????????????????????')) return;
         deleteAllRecords()
           .then(() => { loadHistory(); closeHistoryDetail(); })
           .catch(err => showError('history-error', '蜑企勁縺ｫ螟ｱ謨・ ' + (err.message || err)));
@@ -185,7 +185,7 @@
     if (btnDelOne) {
       btnDelOne.addEventListener('click', () => {
         if (!selectedHistoryId) return;
-        if (!confirm('Delete this history record?')) return;
+        if (!confirm('???????????????????')) return;
         deleteRecord(selectedHistoryId)
           .then(() => {
             historyRecords = historyRecords.filter(rec => rec.id !== selectedHistoryId);
