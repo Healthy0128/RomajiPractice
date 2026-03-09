@@ -1,31 +1,35 @@
-/**
- * grading.js - 採点アルゴリズム（ハイブリッド方式）
- * 手本は fillText + 太線（zoneWidth）でマスク生成
- * 最低線長ゲート・カバレッジ・outside減点を反映
+﻿/**
+ * grading.js - 隰暦ｽ｡霓､・ｹ郢ｧ・｢郢晢ｽｫ郢ｧ・ｴ郢晢ｽｪ郢ｧ・ｺ郢晢｣ｰ繝ｻ蛹ｻ繝ｯ郢ｧ・､郢晄じﾎ懃ｹ昴・繝ｩ隴・ｽｹ陟第得・ｼ繝ｻ * 隰・玄謔ｽ邵ｺ・ｯ fillText + 陞滂ｽｪ驍ｱ螟ｲ・ｼ繝ｻoneWidth繝ｻ蟲ｨ縲堤ｹ晄ｧｭ縺帷ｹｧ・ｯ騾墓ｻ薙・
+ * 隴崢闖ｴ螳茨ｽｷ螟占◇郢ｧ・ｲ郢晢ｽｼ郢晏現繝ｻ郢ｧ・ｫ郢晁・ﾎ樒ｹ昴・縺夂ｹ晢ｽｻoutside雋ょｸｷ縺帷ｹｧ雋樊ｸ夊ｭ擾｣ｰ
  */
 
 (function (global) {
   'use strict';
 
-  // --- 採点パラメータ（READMEに記載） ---
-  const MIN_STROKE_LENGTH_RATIO = 0.25;  // （従来値）テンプレ由来の線長推定と組み合わせて使用
-  const COVERAGE_GRID_SIZE = 12;          // カバレッジ用グリッド 12x12
+  // --- 隰暦ｽ｡霓､・ｹ郢昜ｻ｣ﾎ帷ｹ晢ｽ｡郢晢ｽｼ郢ｧ・ｿ繝ｻ繝ｻEADME邵ｺ・ｫ髫ｪ蛟ｩ・ｼ莨夲ｽｼ繝ｻ---
+  const MIN_STROKE_LENGTH_RATIO = 0.25;  // 繝ｻ莠･・ｾ謐ｺ謫り屐・､繝ｻ蟲ｨ繝ｦ郢晢ｽｳ郢晏干ﾎ樣包ｽｱ隴夲ｽ･邵ｺ・ｮ驍ｱ螟占◇隰暦ｽｨ陞ｳ螢ｹ竊帝お繝ｻ竏ｩ陷ｷ蛹ｻ・冗ｸｺ蟶吮ｻ闖ｴ・ｿ騾包ｽｨ
+  const COVERAGE_GRID_SIZE = 12;          // 郢ｧ・ｫ郢晁・ﾎ樒ｹ昴・縺夐包ｽｨ郢ｧ・ｰ郢晢ｽｪ郢昴・繝ｩ 12x12
   const COVERAGE_WEIGHT = 0.3;            // score = baseScore * (0.7 + 0.3*coverage)
-  const OUTSIDE_PENALTY = 25;             // 減点 = outsideRate * OUTSIDE_PENALTY
-  const PENALTY = 2.0;                    // ゾーン外ペナルティ（inside率計算用）
-  const W1 = 0.45;                        // scoreMask の重み（100が簡単に出ないよう調整）
-  const W2 = 0.35;                        // scoreShape の重み
+  const OUTSIDE_PENALTY = 25;             // 雋ょｸｷ縺・= outsideRate * OUTSIDE_PENALTY
+  const PENALTY = 2.0;                    // 郢ｧ・ｾ郢晢ｽｼ郢晢ｽｳ陞滓じ繝ｻ郢晉ｿｫﾎ晉ｹ昴・縺・・繝ｻnside驍・・・ｨ閧ｲ・ｮ遉ｼ逡代・繝ｻ  const W1 = 0.45;                        // scoreMask 邵ｺ・ｮ鬩･髦ｪ竏ｩ繝ｻ繝ｻ00邵ｺ讙趣ｽｰ・｡陷雁･竊楢怎・ｺ邵ｺ・ｪ邵ｺ繝ｻ・育ｸｺ繝ｻ・ｪ・ｿ隰ｨ・ｴ繝ｻ繝ｻ  const W2 = 0.35;                        // scoreShape 邵ｺ・ｮ鬩･髦ｪ竏ｩ
   const MIN_POINTS = 5;
   const EDGE_MARGIN = 8;
   const MAX_SAMPLE_POINTS = 300;
+  // --- 2026-03 grading precision tweaks (small, compatible changes) ---
+  const TINY_STROKE_RATIO = 0.015;          // ignore accidental taps / very short flicks in scoring
+  const SOFT_ALIGN_CENTER_BLEND = 0.65;     // light center correction for all difficulties
+  const SOFT_ALIGN_SCALE_MIN = 0.88;        // absorb small size differences
+  const SOFT_ALIGN_SCALE_MAX = 1.15;
+  const OCR_STRONG_GATE = 90;               // strong OCR cap only when confidence is very high
+  const OCR_SOFT_GATE = 78;                 // low confidence OCR is treated as hint only
 
-  // Fade / Blind 用の位置ゲート・正規化パラメータ
-  const CENTER_GATE_X_RATIO = 0.35; // これ以上中心が離れていれば位置的に NG
+
+  // Fade / Blind 騾包ｽｨ邵ｺ・ｮ闖ｴ蜥ｲ・ｽ・ｮ郢ｧ・ｲ郢晢ｽｼ郢晏現繝ｻ雎・ｽ｣髫穂ｸ槫密郢昜ｻ｣ﾎ帷ｹ晢ｽ｡郢晢ｽｼ郢ｧ・ｿ
+  const CENTER_GATE_X_RATIO = 0.35; // 邵ｺ阮呻ｽ瑚脂・･闕ｳ雍具ｽｸ・ｭ陟｢繝ｻ窶ｲ鬮ｮ・｢郢ｧ蠕娯ｻ邵ｺ繝ｻ・檎ｸｺ・ｰ闖ｴ蜥ｲ・ｽ・ｮ騾ｧ繝ｻ竊・NG
   const CENTER_GATE_Y_RATIO = 0.25;
-  const CENTER_SOFT_X_RATIO = 0.12; // この範囲を超えた分だけ減点
-  const CENTER_SOFT_Y_RATIO = 0.10;
+  const CENTER_SOFT_X_RATIO = 0.12; // 邵ｺ阮吶・驕ｽ繝ｻ蟲・ｹｧ螳夲ｽｶ繝ｻ竏ｴ邵ｺ貅ｷ繝ｻ邵ｺ・ｰ邵ｺ隨ｬ・ｸ蟶ｷ縺・  const CENTER_SOFT_Y_RATIO = 0.10;
 
-  /** 別の文字として読まれたら50点を超えられない：混同しやすい文字の対応表 */
+  /** 陋ｻ・･邵ｺ・ｮ隴√・・ｭ蜉ｱ竊堤ｸｺ蜉ｱ窶ｻ髫ｱ・ｭ邵ｺ・ｾ郢ｧ蠕娯螺郢ｧ繝ｻ0霓､・ｹ郢ｧ螳夲ｽｶ繝ｻ竏ｴ郢ｧ蟲ｨ・檎ｸｺ・ｪ邵ｺ繝ｻ・ｼ螢ｽ・ｷ・ｷ陷ｷ蠕鯉ｼ郢ｧ繝ｻ笘・ｸｺ繝ｻ譫夊氛蜉ｱ繝ｻ陝・ｽｾ陟｢諛・ｽ｡・ｨ */
   const CONFUSABLES = {
     a: ['o', 'e', 'd', 'q', 'c'], b: ['h', 'd', 'p', 'r'], c: ['o', 'e', 'a', 'q'],
     d: ['b', 'a', 'q', 'p'], e: ['a', 'c', 'o'], f: ['t', 'l'], g: ['q', 'y', 'j'],
@@ -43,7 +47,7 @@
     return DEFAULT_ALTERNATIVES.filter(function (ch) { return ch !== c; });
   }
 
-  /** 指定した1文字のマスクに対して、ユーザー点のうち inside の個数を返す */
+  /** 隰悶・・ｮ螢ｹ・邵ｺ繝ｻ隴√・・ｭ蜉ｱ繝ｻ郢晄ｧｭ縺帷ｹｧ・ｯ邵ｺ・ｫ陝・ｽｾ邵ｺ蜉ｱ窶ｻ邵ｲ竏墅倡ｹ晢ｽｼ郢ｧ・ｶ郢晢ｽｼ霓､・ｹ邵ｺ・ｮ邵ｺ繝ｻ笆 inside 邵ｺ・ｮ陋溷玄辟夂ｹｧ螳夲ｽｿ譁絶・ */
   function countInsideForLetter(points, templateInfo, letter, maskW, maskH) {
     const altInfo = Object.assign({}, templateInfo, { romaji: letter, letter: letter });
     const r = computeMaskScore(points, altInfo, maskW, maskH);
@@ -51,27 +55,23 @@
   }
 
   /**
-   * メインの採点関数。
-   * 単一文字: 従来どおり canvas 全体で採点
-   * 複数文字: templateInfo.boxes / templateInfo.letters があれば、枠ごとに1文字ずつ採点し平均スコアを返す
+   * 郢晢ｽ｡郢ｧ・､郢晢ｽｳ邵ｺ・ｮ隰暦ｽ｡霓､・ｹ鬮｢・｢隰ｨ・ｰ邵ｲ繝ｻ   * 陷雁・ｽｸﾂ隴√・・ｭ繝ｻ 陟墓瑳謫らｸｺ・ｩ邵ｺ鄙ｫ・・canvas 陷茨ｽｨ闖ｴ阮吶定ｬ暦ｽ｡霓､・ｹ
+   * 髫阪・辟夊ｭ√・・ｭ繝ｻ templateInfo.boxes / templateInfo.letters 邵ｺ蠕娯旺郢ｧ蠕後・邵ｲ竏ｵ譽ｧ邵ｺ譁絶・邵ｺ・ｫ1隴√・・ｭ蜉ｱ笘・ｸｺ・､隰暦ｽ｡霓､・ｹ邵ｺ諤懶ｽｹ・ｳ陜ｮ繝ｻ縺帷ｹｧ・ｳ郢ｧ・｢郢ｧ螳夲ｽｿ譁絶・
    *
-   * @param {Array} pointsOrStrokes - strokes[i].points など
+   * @param {Array} pointsOrStrokes - strokes[i].points 邵ｺ・ｪ邵ｺ・ｩ
    * @param {Object} templateInfo
    * @param {number} passLine
-   * @param {string|{difficulty?: string}} [options] - 難易度（trace/ghost/fade/blind）
-   */
+   * @param {string|{difficulty?: string}} [options] - 鬮ｮ・｣隴冗§・ｺ・ｦ繝ｻ繝ｻrace/ghost/fade/blind繝ｻ繝ｻ   */
   function grade(pointsOrStrokes, templateInfo, passLine, options) {
-    // 複数枠（複数文字）モードかどうかを判定
+    // Multi-box template uses per-box grading path.
     if (templateInfo && Array.isArray(templateInfo.boxes) && templateInfo.boxes.length > 1) {
       return gradeMultiBoxes(pointsOrStrokes, templateInfo, passLine, options);
     }
 
     return gradeSingle(pointsOrStrokes, templateInfo, passLine, options);
   }
-
   /**
-   * 単一枠（1文字）用の従来ロジック
-   */
+   * 陷雁・ｽｸﾂ隴ｫ・ｰ繝ｻ繝ｻ隴√・・ｭ證ｦ・ｼ閾･逡醍ｸｺ・ｮ陟墓瑳謫らｹ晢ｽｭ郢ｧ・ｸ郢昴・縺・   */
   function gradeSingle(pointsOrStrokes, templateInfo, passLine, options) {
     const difficulty = typeof options === 'string'
       ? options
@@ -85,97 +85,133 @@
       outside: 0,
       outsidePixels: [],
       message: '',
-      debug: null
+      debug: null,
+      userMessage: '',
+      developerMessage: '',
+      reasonUserList: [],
+      reasonDevList: []
     };
 
+    const userReasons = [];
+    const devReasons = [];
+    function addUserReason(msg) {
+      if (!msg) return;
+      if (userReasons.indexOf(msg) < 0) userReasons.push(msg);
+    }
+    function addDevReason(msg) {
+      if (!msg) return;
+      if (devReasons.indexOf(msg) < 0) devReasons.push(msg);
+    }
+
     if (!templateInfo || !templateInfo.romaji || templateInfo.romaji.length === 0) {
-      result.message = 'あてはまる手本がありません';
+      result.message = '\u898b\u672c\u304c\u3042\u308a\u307e\u305b\u3093';
+      addUserReason(result.message);
+      finalizeReasonFields(result, userReasons, devReasons);
       return result;
     }
 
-    const points = flattenPoints(pointsOrStrokes);
-    const strokes = toStrokesArray(pointsOrStrokes);
-
+    const allStrokes = toStrokesArray(pointsOrStrokes);
     const maskW = Math.round(templateInfo.width || 400);
     const maskH = Math.round(templateInfo.height || 300);
     const canvasMinDim = Math.min(maskW, maskH);
 
-    // テンプレマスクから「インク量」を推定し、期待線長を近似
+    // 2026-03: ignore accidental micro-strokes so taps do not over-penalize
+    const tinyStrokeLength = Math.max(2, canvasMinDim * TINY_STROKE_RATIO);
+    const filtered = filterTinyStrokes(allStrokes, tinyStrokeLength);
+    const scoringStrokes = filtered.strokes.length > 0 ? filtered.strokes : allStrokes;
+    const points = flattenPoints(scoringStrokes);
+    const rawStrokeLength = computeTotalStrokeLength(allStrokes);
+    const totalStrokeLength = computeTotalStrokeLength(scoringStrokes);
+
+    if (filtered.ignoredCount > 0) {
+      addDevReason('Ignored tiny strokes: ' + filtered.ignoredCount);
+    }
+
     const maskForLen = buildTemplateMask(templateInfo, maskW, maskH);
     let inkCount = 0;
     for (let i = 0; i < maskForLen.data.length; i += 4) {
       if (maskForLen.data[i] > 128) inkCount++;
     }
-    const expectedLen = Math.sqrt(inkCount); // おおよその長さスケール
+    const expectedLen = Math.sqrt(inkCount);
     const baseMin = canvasMinDim * 0.05;
     const baseMax = canvasMinDim * 0.30;
     let minStrokeLength = expectedLen * 0.35;
-    // 文字が小さすぎる / 大きすぎる場合の下限・上限クランプ
     minStrokeLength = Math.max(baseMin, Math.min(baseMax, minStrokeLength));
-    // テンプレが極端に小さい場合の保険として旧比率も少し混ぜる
     const fallbackMin = canvasMinDim * MIN_STROKE_LENGTH_RATIO * 0.3;
     minStrokeLength = Math.max(minStrokeLength, fallbackMin);
 
-    // i / j などの細い文字は最低線長を少し緩める（枠方式でも短ストロークを許容）
     if (templateInfo.letter === 'i' || templateInfo.letter === 'j') {
       const h = canvasMinDim || 1;
-      const softMin = h * 0.10; // 非常に短い縦線でも通るように
+      const softMin = h * 0.10;
       minStrokeLength = Math.max(softMin, minStrokeLength * 0.5);
     }
 
-    const totalStrokeLength = computeTotalStrokeLength(strokes);
     if (totalStrokeLength < minStrokeLength) {
       result.verdict = 'red';
-      result.message = '線が短すぎます';
+      result.message = '\u7dda\u304c\u77ed\u3059\u304e\u307e\u3059';
       result.score = 0;
+      addUserReason('Write a bit longer stroke');
+      addDevReason('length ' + totalStrokeLength.toFixed(1) + ' < gate ' + minStrokeLength.toFixed(1));
+      finalizeReasonFields(result, userReasons, devReasons);
       return result;
     }
 
     const sampled = resamplePoints(points, 2, MAX_SAMPLE_POINTS);
     if (sampled.length < MIN_POINTS) {
       result.verdict = 'red';
-      result.message = '点が少なすぎます';
+      result.message = '\u70b9\u304c\u5c11\u306a\u3059\u304e\u307e\u3059';
       result.score = 0;
+      addUserReason('The stroke is too small to grade');
+      addDevReason('sampled points=' + sampled.length);
+      finalizeReasonFields(result, userReasons, devReasons);
       return result;
     }
 
-    const edgeCount = sampled.filter(p =>
-      p.x < EDGE_MARGIN || p.x > maskW - EDGE_MARGIN ||
-      p.y < EDGE_MARGIN || p.y > maskH - EDGE_MARGIN
-    ).length;
+    const edgeCount = sampled.filter(function (p) {
+      return p.x < EDGE_MARGIN || p.x > maskW - EDGE_MARGIN || p.y < EDGE_MARGIN || p.y > maskH - EDGE_MARGIN;
+    }).length;
     if (edgeCount > sampled.length * 0.5) {
       result.verdict = 'red';
-      result.message = '端の誤タッチが多そうです';
+      result.message = '\u7aef\u306e\u8aa4\u30bf\u30c3\u30c1\u304c\u591a\u3044\u3067\u3059';
       result.score = 0;
+      addUserReason('Please write inside the canvas area');
+      addDevReason('edge points ratio=' + (edgeCount / sampled.length).toFixed(3));
+      finalizeReasonFields(result, userReasons, devReasons);
       return result;
     }
 
+    const maskDataForBBox = buildTemplateMask(templateInfo, maskW, maskH);
+    const templateBBox = computeBBoxFromMask(maskDataForBBox, maskW, maskH);
+    const userBBox = computeBBoxFromPoints(sampled);
+
     let evalPoints = sampled;
-    let userBBox = null;
-    let templateBBox = null;
     let normalizedBBox = null;
+    let alignInfo = null;
 
-    if (normalizeShape) {
-      const maskDataForBBox = buildTemplateMask(templateInfo, maskW, maskH);
-      templateBBox = computeBBoxFromMask(maskDataForBBox, maskW, maskH);
-      userBBox = computeBBoxFromPoints(sampled);
+    if (userBBox && templateBBox) {
+      const dxRatio = Math.abs(userBBox.cx - templateBBox.cx) / maskW;
+      const dyRatio = Math.abs(userBBox.cy - templateBBox.cy) / maskH;
 
-      if (userBBox && templateBBox) {
-        const dxRatio = Math.abs(userBBox.cx - templateBBox.cx) / maskW;
-        const dyRatio = Math.abs(userBBox.cy - templateBBox.cy) / maskH;
-
-        // 極端に違う位置は正規化前に弾く（例: 全く別の場所に書いた）
-        if (dxRatio > CENTER_GATE_X_RATIO || dyRatio > CENTER_GATE_Y_RATIO) {
-          result.verdict = 'red';
-          result.message = '位置が大きくずれています';
-          result.score = 0;
-          result.debug = { userBBox, templateBBox, normalizedBBox: null };
-          return result;
-        }
-
-        evalPoints = normalizePointsToTemplateBBox(sampled, userBBox, templateBBox);
-        normalizedBBox = computeBBoxFromPoints(evalPoints);
+      if (normalizeShape && (dxRatio > CENTER_GATE_X_RATIO || dyRatio > CENTER_GATE_Y_RATIO)) {
+        result.verdict = 'red';
+        result.message = '\u4f4d\u7f6e\u304c\u5927\u304d\u304f\u305a\u308c\u3066\u3044\u307e\u3059';
+        result.score = 0;
+        addUserReason('Try writing closer to the guide');
+        addDevReason('center gate fail dx=' + dxRatio.toFixed(3) + ', dy=' + dyRatio.toFixed(3));
+        result.debug = { userBBox: userBBox, templateBBox: templateBBox, normalizedBBox: null };
+        finalizeReasonFields(result, userReasons, devReasons);
+        return result;
       }
+
+      // 2026-03: light alignment even in non-fade modes to absorb small size/position differences
+      const alignStrength = normalizeShape ? 0.9 : SOFT_ALIGN_CENTER_BLEND;
+      const scaleMin = normalizeShape ? 0.8 : SOFT_ALIGN_SCALE_MIN;
+      const scaleMax = normalizeShape ? 1.25 : SOFT_ALIGN_SCALE_MAX;
+      const softAligned = softAlignPointsToTemplateBBox(sampled, userBBox, templateBBox, alignStrength, scaleMin, scaleMax);
+      evalPoints = softAligned.points;
+      alignInfo = softAligned.info;
+      normalizedBBox = computeBBoxFromPoints(evalPoints);
+      addDevReason('soft align center=' + alignStrength.toFixed(2) + ', scale=' + softAligned.info.scale.toFixed(3));
     }
 
     const maskResult = computeMaskScore(evalPoints, templateInfo, maskW, maskH);
@@ -189,101 +225,292 @@
     const insideRate = total > 0 ? maskResult.inside / total : 0;
 
     const coverage = computeCoverage(evalPoints, templateInfo, maskW, maskH);
+    const shapeScore = computeShapeScore(evalPoints, templateInfo);
+    const distributionScore = computeDistributionScore(evalPoints, templateInfo);
 
-    // base: insideRate のみで 0〜100 にスケーリング
     let baseScore = insideRate * 100;
-    // coverage は 0.85〜1.0 の補助係数（優しめ）
-    const coverageFactor = 0.85 + 0.15 * coverage;
+    const coverageFactor = 0.86 + 0.14 * coverage;
     baseScore = baseScore * coverageFactor;
+    baseScore = (baseScore * 0.78) + (shapeScore * 0.14) + (distributionScore * 0.08);
 
-    // Fade / Blind 時のみ、中心位置のずれに応じて追加減点（縦方向をやや厳しめ）
+    let rescueBonus = 0;
+    if (coverage < 0.55 && shapeScore >= 80 && insideRate >= 0.72) {
+      rescueBonus = Math.min(8, (shapeScore - 80) * 0.3 + (insideRate - 0.72) * 20);
+      baseScore += rescueBonus;
+      addDevReason('low-coverage rescue +' + rescueBonus.toFixed(1));
+    }
+
     if (normalizeShape && userBBox && templateBBox) {
       const dxRatio = Math.abs(userBBox.cx - templateBBox.cx) / maskW;
       const dyRatio = Math.abs(userBBox.cy - templateBBox.cy) / maskH;
       const nx = Math.max(0, dxRatio - CENTER_SOFT_X_RATIO) / Math.max(1e-6, CENTER_GATE_X_RATIO - CENTER_SOFT_X_RATIO);
       const ny = Math.max(0, dyRatio - CENTER_SOFT_Y_RATIO) / Math.max(1e-6, CENTER_GATE_Y_RATIO - CENTER_SOFT_Y_RATIO);
-      const centerPenalty = nx * 10 + ny * 20; // 縦方向の方が減点が大きい
+      const centerPenalty = nx * 8 + ny * 16;
       baseScore = Math.max(0, baseScore - centerPenalty);
+      addDevReason('center penalty=' + centerPenalty.toFixed(2));
     }
 
     const penalty = Math.min(12, Math.max(0, outsideRate * 20));
-    const finalScore = Math.max(0, Math.min(100, baseScore - penalty));
-    result.score = Math.round(finalScore);
+    let finalScore = Math.max(0, Math.min(100, baseScore - penalty));
 
-    // 別の文字として読まれたら50点を超えられない（判定は OCR のみを使用）
-    // - OCR 結果から抽出したアルファベット1文字（ocrLetter）があり
-    // - その信頼度（ocrConfidence）が十分高い場合だけ、
-    //   正解の1文字と違えば「別の文字」とみなして 49 点にキャップする
-    if (result.score > 49 && options && (options.ocrLetter !== undefined || options.ocrText !== undefined)) {
+    // 2026-03: OCR affects score strongly only with high confidence
+    let ocrDecision = { mode: 'none', expected: '', detected: '', confidence: 0, cap: null };
+    if (finalScore > 49 && options && (options.ocrLetter !== undefined || options.ocrText !== undefined)) {
       const expectedLetter = (templateInfo.letter || (templateInfo.romaji && templateInfo.romaji[0]) || '').toLowerCase();
       if (expectedLetter && /^[a-z]$/.test(expectedLetter)) {
-        let ocrLetter = '';
-        let conf = 0;
-        if (options.ocrLetter) {
-          const l = String(options.ocrLetter).toLowerCase();
-          if (/^[a-z]$/.test(l)) {
-            ocrLetter = l;
-            if (typeof options.ocrConfidence === 'number' && isFinite(options.ocrConfidence)) {
-              conf = options.ocrConfidence;
+        const parsed = parseOcrSingle(options);
+        if (parsed.letter && parsed.letter !== expectedLetter) {
+          if (parsed.alphaLength > 1) {
+            addDevReason('OCR mismatch ignored (multi-alpha text) alphaLen=' + parsed.alphaLength);
+          } else {
+            ocrDecision = applyOcrPenalty(finalScore, parsed.letter, expectedLetter, parsed.confidence);
+            finalScore = ocrDecision.score;
+            if (ocrDecision.mode === 'strong') {
+              result.message = '\u5225\u306e\u6587\u5b57\u306b\u8aad\u307e\u308c\u307e\u3057\u305f';
+              addUserReason('OCR strongly suggests a different character');
+            } else if (ocrDecision.mode === 'soft') {
+              addDevReason('OCR soft mismatch cap=' + ocrDecision.cap + ' conf=' + parsed.confidence.toFixed(1));
+            } else {
+              addDevReason('OCR mismatch ignored (low confidence) conf=' + parsed.confidence.toFixed(1));
             }
-          }
-        }
-        // 互換性のため、ocrLetter が無い場合は生テキストから1文字だけ推定
-        if (!ocrLetter && options.ocrText !== undefined) {
-          const raw = (options.ocrText || '').trim().toLowerCase();
-          const lettersOnly = raw.replace(/[^a-z]/g, '');
-          if (lettersOnly.length === 1) {
-            ocrLetter = lettersOnly[0];
-          }
-        }
-        const CONF_GATE = 75;
-        if (ocrLetter && (conf === 0 || conf >= CONF_GATE)) {
-          if (ocrLetter !== expectedLetter) {
-            result.score = Math.min(result.score, 49);
-            result.message = '別の文字に読まれました';
           }
         }
       }
     }
 
-    // デバッグ用に内訳を保持
+    result.score = Math.round(finalScore);
+
     if (options && typeof options === 'object') {
       if (options.ocrText !== undefined) result.ocrText = options.ocrText;
       if (options.ocrLetter !== undefined) result.ocrLetter = options.ocrLetter;
       if (options.ocrConfidence !== undefined) result.ocrConfidence = options.ocrConfidence;
+      if (options.ocrAlphaLength !== undefined) result.ocrAlphaLength = options.ocrAlphaLength;
+      if (options.ocrSource !== undefined) result.ocrSource = options.ocrSource;
     }
+
     result.outsideRate = outsideRate;
     result.coverage = coverage;
     result.baseScore = Math.round(baseScore);
     result.lengthTotal = totalStrokeLength;
+    result.lengthRaw = rawStrokeLength;
     result.lengthGate = minStrokeLength;
     result.penalty = penalty;
+    result.shapeScore = Math.round(shapeScore);
+    result.distributionScore = Math.round(distributionScore);
+    result.rescueBonus = Number(rescueBonus.toFixed(2));
+    result.ignoredTinyStrokes = filtered.ignoredCount;
+    result.ocrDecision = ocrDecision;
 
-    // 判定と簡易理由（別文字キャップ時はメッセージを上書きしない）
-    const keptMessage = result.message === '別の文字に読まれました';
+    const keptMessage = result.message === '\u5225\u306e\u6587\u5b57\u306b\u8aad\u307e\u308c\u307e\u3057\u305f';
     if (result.score >= passLine) {
       result.verdict = 'green';
-      if (!keptMessage) result.message = '合格';
+      if (!keptMessage) result.message = '\u5408\u683c';
+      addUserReason('Good overall shape match');
     } else if (result.score >= passLine - 10) {
       result.verdict = 'yellow';
-      if (!keptMessage) result.message = 'おしい';
+      if (!keptMessage) result.message = '\u304a\u3057\u3044';
+      addUserReason('Small shape or position adjustment can pass');
     } else {
       result.verdict = 'red';
       if (!keptMessage) {
         if (totalStrokeLength < minStrokeLength * 1.05) {
-          result.message = '線が短すぎます';
+          result.message = '\u7dda\u304c\u77ed\u3059\u304e\u307e\u3059';
+          addUserReason('Write a slightly longer, clearer stroke');
         } else if (outsideRate > 0.35) {
-          result.message = '線が枠からはみ出しています';
+          result.message = '\u7dda\u304c\u306f\u307f\u51fa\u3057\u3066\u3044\u307e\u3059';
+          addUserReason('A lot of stroke is outside the guide zone');
         } else if (coverage < 0.5) {
-          result.message = '手本の線をもう少しなぞってみよう';
+          result.message = '\u898b\u672c\u306e\u7dda\u3092\u3082\u3046\u5c11\u3057\u306a\u305e\u3063\u3066\u304f\u3060\u3055\u3044';
+          addUserReason('Coverage is low; follow more of the template path');
         } else {
-          result.message = 'もう一回';
+          result.message = '\u3082\u3046\u4e00\u56de';
+          addUserReason('Balance of the shape needs adjustment');
         }
       }
     }
 
-    result.debug = { userBBox, templateBBox, normalizedBBox };
+    addDevReason('insideRate=' + insideRate.toFixed(3) + ', outsideRate=' + outsideRate.toFixed(3) + ', coverage=' + coverage.toFixed(3));
+    addDevReason('shape=' + shapeScore.toFixed(1) + ', dist=' + distributionScore.toFixed(1) + ', penalty=' + penalty.toFixed(2));
+
+    result.debug = {
+      userBBox: userBBox,
+      templateBBox: templateBBox,
+      normalizedBBox: normalizedBBox,
+      alignInfo: alignInfo,
+      ocrDecision: ocrDecision,
+      scoreBreakdown: {
+        insideRate: insideRate,
+        outsideRate: outsideRate,
+        coverage: coverage,
+        shapeScore: shapeScore,
+        distributionScore: distributionScore,
+        rescueBonus: rescueBonus,
+        penalty: penalty,
+        baseScore: baseScore,
+        finalScore: finalScore
+      }
+    };
+
+    finalizeReasonFields(result, userReasons, devReasons);
     return result;
+  }
+
+  function finalizeReasonFields(result, userReasons, devReasons) {
+    const userList = Array.isArray(userReasons) ? userReasons.slice(0, 6) : [];
+    const devList = Array.isArray(devReasons) ? devReasons.slice(0, 12) : [];
+    result.reasonUserList = userList;
+    result.reasonDevList = devList;
+    result.userMessage = userList.length > 0 ? userList[0] : (result.message || '');
+    result.developerMessage = devList.join(' | ');
+  }
+
+  function filterTinyStrokes(strokes, tinyLength) {
+    const kept = [];
+    let ignoredCount = 0;
+    (strokes || []).forEach(function (stroke) {
+      const pts = (stroke && stroke.points) ? stroke.points : [];
+      if (!pts || pts.length <= 1) {
+        ignoredCount++;
+        return;
+      }
+      const len = computeTotalStrokeLength([{ points: pts }]);
+      const isTiny = len < tinyLength && pts.length <= 4;
+      if (isTiny) {
+        ignoredCount++;
+        return;
+      }
+      kept.push(stroke);
+    });
+    return { strokes: kept, ignoredCount: ignoredCount };
+  }
+
+  function softAlignPointsToTemplateBBox(points, userBBox, templateBBox, centerBlend, scaleMin, scaleMax) {
+    if (!points || !userBBox || !templateBBox) {
+      return { points: points || [], info: { scale: 1, shiftX: 0, shiftY: 0 } };
+    }
+
+    const areaU = Math.max(1, userBBox.width * userBBox.height);
+    const areaT = Math.max(1, templateBBox.width * templateBBox.height);
+    const rawScale = Math.sqrt(areaT / areaU);
+    const scale = Math.max(scaleMin, Math.min(scaleMax, rawScale));
+    const shiftX = (templateBBox.cx - userBBox.cx) * centerBlend;
+    const shiftY = (templateBBox.cy - userBBox.cy) * centerBlend;
+
+    const aligned = points.map(function (p) {
+      return {
+        x: (p.x - userBBox.cx) * scale + userBBox.cx + shiftX,
+        y: (p.y - userBBox.cy) * scale + userBBox.cy + shiftY
+      };
+    });
+
+    return {
+      points: aligned,
+      info: {
+        scale: scale,
+        rawScale: rawScale,
+        shiftX: shiftX,
+        shiftY: shiftY,
+        centerBlend: centerBlend
+      }
+    };
+  }
+
+  function parseOcrSingle(options) {
+    let letter = '';
+    let confidence = 0;
+    let alphaLength = 0;
+    let source = 'none';
+    if (options && options.ocrLetter) {
+      const l = String(options.ocrLetter).toLowerCase();
+      if (/^[a-z]$/.test(l)) {
+        letter = l;
+        source = options.ocrSource || 'letter';
+        if (typeof options.ocrConfidence === 'number' && isFinite(options.ocrConfidence)) {
+          confidence = options.ocrConfidence;
+        }
+      }
+    }
+    if (!letter && options && options.ocrText !== undefined) {
+      const raw = String(options.ocrText || '').trim().toLowerCase();
+      const lettersOnly = raw.replace(/[^a-z]/g, '');
+      alphaLength = lettersOnly.length;
+      if (lettersOnly.length === 1) letter = lettersOnly[0];
+      if (letter) source = options.ocrSource || 'text';
+    }
+    if (options && typeof options.ocrAlphaLength === 'number' && isFinite(options.ocrAlphaLength)) {
+      alphaLength = Math.max(alphaLength, options.ocrAlphaLength);
+    }
+    return { letter: letter, confidence: confidence, alphaLength: alphaLength, source: source };
+  }
+
+  function applyOcrPenalty(currentScore, detected, expected, confidence) {
+    if (!detected || !expected || detected === expected) {
+      return { mode: 'none', score: currentScore, expected: expected, detected: detected, confidence: confidence || 0, cap: null };
+    }
+
+    const conf = (typeof confidence === 'number' && isFinite(confidence)) ? confidence : 0;
+    const confusables = getConfusableLetters(expected);
+    const isConfusable = confusables.indexOf(detected) >= 0;
+    const strongCap = isConfusable ? 59 : 49;
+    const softCap = isConfusable ? 79 : 69;
+    if (conf >= OCR_STRONG_GATE) {
+      return { mode: 'strong', score: Math.min(currentScore, strongCap), expected: expected, detected: detected, confidence: conf, cap: strongCap };
+    }
+    if (conf >= OCR_SOFT_GATE) {
+      return { mode: 'soft', score: Math.min(currentScore, softCap), expected: expected, detected: detected, confidence: conf, cap: softCap };
+    }
+    return { mode: 'none', score: currentScore, expected: expected, detected: detected, confidence: conf, cap: null };
+  }
+
+  function computeDistributionScore(userPoints, templateInfo) {
+    const templatePoints = sampleTemplatePointsFromMask(templateInfo);
+    if (!templatePoints || templatePoints.length < 8 || !userPoints || userPoints.length < 8) return 50;
+
+    const userStat = computePointDistributionStats(userPoints);
+    const templateStat = computePointDistributionStats(templatePoints);
+    if (!userStat || !templateStat) return 50;
+
+    const centerDist = Math.hypot(userStat.cx - templateStat.cx, userStat.cy - templateStat.cy);
+    const spreadDist = Math.abs(userStat.sx - templateStat.sx) + Math.abs(userStat.sy - templateStat.sy);
+    const aspectDiff = Math.abs(Math.log((userStat.aspect + 1e-6) / (templateStat.aspect + 1e-6)));
+
+    const score = 100 - (centerDist * 160) - (spreadDist * 220) - (aspectDiff * 35);
+    return Math.max(0, Math.min(100, score));
+  }
+
+  function computePointDistributionStats(points) {
+    const bbox = computeBBoxFromPoints(points);
+    if (!bbox) return null;
+
+    const w = Math.max(1e-6, bbox.width);
+    const h = Math.max(1e-6, bbox.height);
+    let sx = 0;
+    let sy = 0;
+    let sxx = 0;
+    let syy = 0;
+
+    for (let i = 0; i < points.length; i++) {
+      const nx = (points[i].x - bbox.minX) / w;
+      const ny = (points[i].y - bbox.minY) / h;
+      sx += nx;
+      sy += ny;
+      sxx += nx * nx;
+      syy += ny * ny;
+    }
+
+    const n = Math.max(1, points.length);
+    const cx = sx / n;
+    const cy = sy / n;
+    const vx = Math.max(0, sxx / n - cx * cx);
+    const vy = Math.max(0, syy / n - cy * cy);
+
+    return {
+      cx: cx,
+      cy: cy,
+      sx: Math.sqrt(vx),
+      sy: Math.sqrt(vy),
+      aspect: bbox.width / Math.max(1e-6, bbox.height)
+    };
   }
 
   function flattenPoints(pointsOrStrokes) {
@@ -363,8 +590,7 @@
       }
     }
     if (maxX < minX || maxY < minY) {
-      // 万一マスクが空ならキャンバス中央付近を仮の枠とする
-      const w = maskW * 0.4;
+      // 闕ｳ繝ｻ・ｸﾂ郢晄ｧｭ縺帷ｹｧ・ｯ邵ｺ讙趣ｽｩ・ｺ邵ｺ・ｪ郢ｧ蟲ｨ縺冗ｹ晢ｽ｣郢晢ｽｳ郢晁・縺幄叉・ｭ陞滂ｽｮ闔牙ｩ・ｿ莉｣・定脂・ｮ邵ｺ・ｮ隴ｫ・ｰ邵ｺ・ｨ邵ｺ蜷ｶ・・      const w = maskW * 0.4;
       const h = maskH * 0.4;
       const minXFallback = (maskW - w) / 2;
       const minYFallback = (maskH - h) / 2;
@@ -405,8 +631,7 @@
   }
 
   /**
-   * 手本マスクをグリッド分割し、手本が存在するセルのうちユーザー線が通ったセル割合
-   */
+   * 隰・玄謔ｽ郢晄ｧｭ縺帷ｹｧ・ｯ郢ｧ蛛ｵ縺堤ｹ晢ｽｪ郢昴・繝ｩ陋ｻ繝ｻ迚｡邵ｺ蜉ｱﾂ竏ｵ辟碑ｭ幢ｽｬ邵ｺ謔滂ｽｭ莨懈Β邵ｺ蜷ｶ・狗ｹｧ・ｻ郢晢ｽｫ邵ｺ・ｮ邵ｺ繝ｻ笆郢晢ｽｦ郢晢ｽｼ郢ｧ・ｶ郢晢ｽｼ驍ｱ螢ｹ窶ｲ鬨ｾ螢ｹ笆ｲ邵ｺ貅倥◎郢晢ｽｫ陷托ｽｲ陷ｷ繝ｻ   */
   function computeCoverage(userPoints, templateInfo, maskW, maskH) {
     const templateMask = buildTemplateMask(templateInfo, maskW, maskH);
     const cellW = maskW / COVERAGE_GRID_SIZE;
@@ -508,7 +733,7 @@
         const idx = (y * maskW + x) * 4;
         if (maskBuf[idx] > 128) isInside = true;
       } else {
-        // 半径 toleranceRadius 以内に手本マスクがあれば inside とみなす
+        // Check nearby pixels within tolerance radius for inside hit.
         for (let dy = -toleranceRadius; dy <= toleranceRadius && !isInside; dy++) {
           const ny = y + dy;
           if (ny < 0 || ny >= maskH) continue;
@@ -594,12 +819,8 @@
   }
 
   /**
-   * 複数枠（複数文字）用：templateInfo.boxes / templateInfo.letters を使って、
-   * 各枠ごとに gradeSingle を呼び出し、その平均スコアを返す。
-   *
-   * - 各枠の strokes は stroke.boxIndex で振り分け
-   * - 採点は枠ローカル座標系（box.x, box.y を原点に平行移動）
-   * - outsidePixels / insidePixels は再びグローバル座標に戻して合成
+   * 髫阪・辟夊ｭｫ・ｰ繝ｻ驛・ｽ､繝ｻ辟夊ｭ√・・ｭ證ｦ・ｼ閾･逡代・蝸ｾemplateInfo.boxes / templateInfo.letters 郢ｧ蜑・ｽｽ・ｿ邵ｺ・｣邵ｺ・ｦ邵ｲ繝ｻ   * 陷ｷ繝ｻ譽ｧ邵ｺ譁絶・邵ｺ・ｫ gradeSingle 郢ｧ雋樔ｻ也ｸｺ・ｳ陷・ｽｺ邵ｺ蜉ｱﾂ竏壺落邵ｺ・ｮ陝ｷ・ｳ陜ｮ繝ｻ縺帷ｹｧ・ｳ郢ｧ・｢郢ｧ螳夲ｽｿ譁絶・邵ｲ繝ｻ   *
+   * - 陷ｷ繝ｻ譽ｧ邵ｺ・ｮ strokes 邵ｺ・ｯ stroke.boxIndex 邵ｺ・ｧ隰厄ｽｯ郢ｧ髮√・邵ｺ繝ｻ   * - 隰暦ｽ｡霓､・ｹ邵ｺ・ｯ隴ｫ・ｰ郢晢ｽｭ郢晢ｽｼ郢ｧ・ｫ郢晢ｽｫ陟趣ｽｧ隶灘衷・ｳ・ｻ繝ｻ繝ｻox.x, box.y 郢ｧ雋樊ｬ｡霓､・ｹ邵ｺ・ｫ陝ｷ・ｳ髯ｦ讙趣ｽｧ・ｻ陷榊桁・ｼ繝ｻ   * - outsidePixels / insidePixels 邵ｺ・ｯ陷髦ｪ繝ｻ郢ｧ・ｰ郢晢ｽｭ郢晢ｽｼ郢晁・ﾎ晁趣ｽｧ隶灘生竊楢ｬ鯉ｽｻ邵ｺ蜉ｱ窶ｻ陷ｷ蝓溘・
    */
   function gradeMultiBoxes(pointsOrStrokes, templateInfo, passLine, options) {
     const difficulty = typeof options === 'string'
@@ -620,15 +841,31 @@
       insidePixels: [],
       message: '',
       debug: null,
-      perBox: []
+      perBox: [],
+      userMessage: '',
+      developerMessage: '',
+      reasonUserList: [],
+      reasonDevList: []
     };
 
+    const userReasons = [];
+    const devReasons = [];
+    function addUserReason(msg) {
+      if (!msg) return;
+      if (userReasons.indexOf(msg) < 0) userReasons.push(msg);
+    }
+    function addDevReason(msg) {
+      if (!msg) return;
+      if (devReasons.indexOf(msg) < 0) devReasons.push(msg);
+    }
+
     if (!templateInfo || !letters || letters.length === 0 || boxes.length === 0) {
-      result.message = 'あてはまる手本がありません';
+      result.message = '\u898b\u672c\u304c\u3042\u308a\u307e\u305b\u3093';
+      addUserReason(result.message);
+      finalizeReasonFields(result, userReasons, devReasons);
       return result;
     }
 
-    // strokes 配列から boxIndex ごとに振り分け
     const strokesArray = toStrokesArray(pointsOrStrokes);
     const boxCount = Math.min(boxes.length, letters.length);
 
@@ -644,30 +881,31 @@
       if (!box) continue;
       const letter = letters[i] || '';
 
-      // この枠に属するストロークだけを抽出（boxIndex が一致するもの）
       const boxStrokes = strokesArray
-        .filter(s => (s.boxIndex != null ? s.boxIndex : 0) === i)
-        .map(s => ({
-          boxIndex: i,
-          points: (s.points || []).map(p => ({
-            x: p.x - box.x,
-            y: p.y - box.y,
-            t: p.t,
-            pressure: p.pressure,
-            pointerType: p.pointerType
-          }))
-        }));
+        .filter(function (s) { return (s.boxIndex != null ? s.boxIndex : 0) === i; })
+        .map(function (s) {
+          return {
+            boxIndex: i,
+            points: (s.points || []).map(function (p) {
+              return {
+                x: p.x - box.x,
+                y: p.y - box.y,
+                t: p.t,
+                pressure: p.pressure,
+                pointerType: p.pointerType
+              };
+            })
+          };
+        });
 
-      // マスク生成も枠ローカル座標系 0..box.w, 0..box.h で行う
       let localMetrics = null;
       if (typeof Template !== 'undefined' && Template.getMetrics) {
         localMetrics = Template.getMetrics(box.w, box.h);
       }
 
-      // 何も書かれていない枠も採点関数に渡す（length gate で 0 点）
       const localTemplate = {
         romaji: letter,
-        letter,
+        letter: letter,
         width: box.w,
         height: box.h,
         zoneWidth: templateInfo.zoneWidth || 20,
@@ -677,81 +915,97 @@
         metrics: localMetrics
       };
 
-      const boxRes = gradeSingle(boxStrokes, localTemplate, passLine, { difficulty });
+      const boxRes = gradeSingle(boxStrokes, localTemplate, passLine, { difficulty: difficulty });
       result.perBox.push(boxRes);
 
       totalScore += boxRes.score;
       validBoxCount++;
-
       sumInside += boxRes.inside || 0;
       sumOutside += boxRes.outside || 0;
 
-      // 枠ローカル → グローバル座標に戻して収集
-      (boxRes.outsidePixels || []).forEach(p => {
+      (boxRes.outsidePixels || []).forEach(function (p) {
         allOutsidePixels.push({ x: p.x + box.x, y: p.y + box.y });
       });
-      (boxRes.insidePixels || []).forEach(p => {
+      (boxRes.insidePixels || []).forEach(function (p) {
         allInsidePixels.push({ x: p.x + box.x, y: p.y + box.y });
       });
     }
 
     if (validBoxCount === 0) {
-      // 何も書かれていない場合は単一枠ロジックに任せる
       return gradeSingle(pointsOrStrokes, templateInfo, passLine, options);
     }
 
     const avgScore = totalScore / validBoxCount;
     result.score = Math.round(Math.max(0, Math.min(100, avgScore)));
 
-    // 複数枠の抽象ルール1: いずれかの枠が0点（空枠・線が短い）なら全体不合格
     const anyBoxZero = result.perBox.some(function (br) { return br.score === 0; });
     if (anyBoxZero) {
       result.score = 0;
       result.verdict = 'red';
-      result.message = '各枠に文字を書いてください';
+      result.message = '\u3069\u308c\u304b1\u67a0\u304c0\u70b9\u3067\u3059';
+      addUserReason('Because one box is 0, total score is forced to 0');
+      addDevReason('multi-box hard rule: any box 0 => total 0');
     } else {
-      // 複数枠の抽象ルール2: 枠ごとに OCR 結果を1文字ずつ判定（ocrPerBox 優先）
+      let ocrDecision = { mode: 'none', expected: '', detected: '', confidence: 0, cap: null };
+
       if (result.score > 49 && options && Array.isArray(options.ocrPerBox) && options.ocrPerBox.length > 0) {
-        const CONF_GATE = 75;
+        let mismatch = null;
         for (let i = 0; i < letters.length && i < options.ocrPerBox.length; i++) {
           const expected = (letters[i] || '').toLowerCase();
           if (!expected || !/^[a-z]$/.test(expected)) continue;
           const info = options.ocrPerBox[i];
           const ocrLetter = (info && info.letter) ? String(info.letter).toLowerCase() : '';
-          if (!ocrLetter || !/^[a-z]$/.test(ocrLetter)) continue;
-          const conf = (info && typeof info.confidence === 'number') ? info.confidence : 0;
-          if (ocrLetter !== expected && (conf === 0 || conf >= CONF_GATE)) {
-            result.score = Math.min(result.score, 49);
-            result.message = '別の文字に読まれました';
-            break;
+          if (!ocrLetter || !/^[a-z]$/.test(ocrLetter) || ocrLetter === expected) continue;
+          const alphaLen = (info && typeof info.alphaLength === 'number' && isFinite(info.alphaLength)) ? info.alphaLength : 0;
+          if (alphaLen > 1) {
+            addDevReason('multi OCR mismatch ignored (multi-alpha text) box=' + i + ' alphaLen=' + alphaLen);
+            continue;
+          }
+          const conf = (info && typeof info.confidence === 'number' && isFinite(info.confidence)) ? info.confidence : 0;
+          if (!mismatch || conf > mismatch.confidence) {
+            mismatch = { expected: expected, detected: ocrLetter, confidence: conf, index: i };
+          }
+        }
+
+        if (mismatch) {
+          ocrDecision = applyOcrPenalty(result.score, mismatch.detected, mismatch.expected, mismatch.confidence);
+          result.score = Math.round(ocrDecision.score);
+          if (ocrDecision.mode === 'strong') {
+            result.message = '\u5225\u306e\u6587\u5b57\u306b\u8aad\u307e\u308c\u307e\u3057\u305f';
+            addUserReason('OCR strongly suggests a different character in one box');
+          } else if (ocrDecision.mode === 'soft') {
+            addDevReason('multi OCR soft mismatch box=' + mismatch.index + ' conf=' + mismatch.confidence.toFixed(1));
+          } else {
+            addDevReason('multi OCR mismatch ignored (low confidence) box=' + mismatch.index + ' conf=' + mismatch.confidence.toFixed(1));
           }
         }
       } else if (result.score > 49 && options && options.ocrText !== undefined) {
-        // 互換: 全体1枚の OCR 結果で文字数が同じときだけ比較
         const expectedRomaji = (templateInfo.romaji || letters.join('') || '').toLowerCase().replace(/[^a-z]/g, '');
-        if (expectedRomaji.length >= 2) {
-          const ocrRaw = (options.ocrText || '').trim().toLowerCase();
-          const ocrNorm = ocrRaw.replace(/[^a-z]/g, '');
-          if (ocrNorm.length === expectedRomaji.length && ocrNorm !== expectedRomaji) {
-            result.score = Math.min(result.score, 49);
-            result.message = '別の文字に読まれました';
-          }
+        const ocrRaw = String(options.ocrText || '').trim().toLowerCase();
+        const ocrNorm = ocrRaw.replace(/[^a-z]/g, '');
+        if (expectedRomaji.length >= 2 && ocrNorm.length === expectedRomaji.length && ocrNorm !== expectedRomaji) {
+          // no confidence here: keep as debug hint only
+          addDevReason('multi OCR text mismatch kept as hint (no confidence): ' + ocrNorm + ' != ' + expectedRomaji);
         }
       }
+
+      result.ocrDecision = ocrDecision;
     }
 
-    // 合否判定（総合のみ）
-    const keptMessage = result.message === '別の文字に読まれました' || result.message === 'OCRで読み取れませんでした';
+    const keptMessage = result.message === '\u5225\u306e\u6587\u5b57\u306b\u8aad\u307e\u308c\u307e\u3057\u305f';
     if (!anyBoxZero) {
       if (result.score >= passLine) {
         result.verdict = 'green';
-        if (!keptMessage) result.message = '合格';
+        if (!keptMessage) result.message = '\u5408\u683c';
+        addUserReason('Per-box shapes are overall good');
       } else if (result.score >= passLine - 10) {
         result.verdict = 'yellow';
-        if (!keptMessage) result.message = 'おしい';
+        if (!keptMessage) result.message = '\u304a\u3057\u3044';
+        addUserReason('Adjust one or two boxes slightly');
       } else {
         result.verdict = 'red';
-        if (!keptMessage) result.message = 'もう一回';
+        if (!keptMessage) result.message = '\u3082\u3046\u4e00\u56de';
+        addUserReason('Review each box shape and position');
       }
     }
 
@@ -772,9 +1026,22 @@
       if (options.ocrText !== undefined) result.ocrText = options.ocrText;
       if (Array.isArray(options.ocrPerBox) && options.ocrPerBox.length > 0) {
         result.ocrText = options.ocrPerBox.map(function (p) { return (p && p.letter) ? p.letter : '-'; }).join(', ');
+        result.ocrPerBox = options.ocrPerBox.map(function (p) {
+          return {
+            letter: p && p.letter ? p.letter : '',
+            confidence: p && typeof p.confidence === 'number' ? p.confidence : 0,
+            alphaLength: p && typeof p.alphaLength === 'number' ? p.alphaLength : 0,
+            source: p && p.source ? p.source : 'none'
+          };
+        });
       }
     }
+
+    addDevReason('perBox=' + result.perBox.map(function (b) { return b.score; }).join(','));
+    addDevReason('outsideRate=' + result.outsideRate.toFixed(3));
+
     result.debug = null;
+    finalizeReasonFields(result, userReasons, devReasons);
     return result;
   }
 

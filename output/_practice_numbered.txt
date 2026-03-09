@@ -1,0 +1,957 @@
+    1: /**
+    2:  * practice.js - Practice 逕ｻ髱｢縺ｮ UI 蛻ｶ蠕｡
+    3:  * 譁・ｭ鈴∈謚槭・髮｣譏灘ｺｦ繝ｻ繧ｹ繝ｩ繧､繝繝ｼ繝ｻ蛻､螳壹・譁・ｭ怜挨螻･豁ｴ繝励Ξ繝薙Η繝ｼ・域怙譁ｰ10莉ｶ・峨・繧ｪ繝ｼ繝舌・繝ｬ繧､
+    4:  */
+    5: 
+    6: (function (global) {
+    7:   'use strict';
+    8: 
+    9:   let currentKana = '\u3042';
+   10:   let practiceBound = false;
+   11:   // Prevent duplicate grading/saving caused by rapid re-clicks during OCR.
+   12:   let practiceCheckInFlight = false;
+   13:   // Prevent accidental double-submit when the same input is checked repeatedly in a short interval.
+   14:   let lastPracticeCheckSig = '';
+   15:   let lastPracticeCheckAt = 0;
+   16:   let lastPracticeSaveSig = '';
+   17:   let lastPracticeSaveAt = 0;
+   18: 
+   19:   // 譁・ｭ励＃縺ｨ縺ｮ驕疲・迥ｶ豕・ｼ・ocalStorage 菫晏ｭ倡畑・・  // progressMap: { [kana: string]: { bestScore: number, lastScore: number, updatedAt: number } }
+   20:   const PROGRESS_KEY = 'progress_v1';
+   21:   const GUIDE_SEEN_KEY = 'practice_guide_seen_v1';
+   22:   let progressMap = null;
+   23:   let sessionChecks = 0;
+   24:   let sessionPasses = 0;
+   25:   let sessionStreak = 0;
+   26: 
+   27:   function ensureProgressLoaded() {
+   28:     if (progressMap != null) return;
+   29:     try {
+   30:       const raw = (typeof localStorage !== 'undefined') ? localStorage.getItem(PROGRESS_KEY) : null;
+   31:       progressMap = raw ? JSON.parse(raw) || {} : {};
+   32:     } catch (e) {
+   33:       progressMap = {};
+   34:     }
+   35:   }
+   36: 
+   37:   function saveProgress() {
+   38:     if (typeof localStorage === 'undefined' || !progressMap) return;
+   39:     try {
+   40:       localStorage.setItem(PROGRESS_KEY, JSON.stringify(progressMap));
+   41:     } catch (e) {
+   42:       // ignore
+   43:     }
+   44:   }
+   45: 
+   46:   function applyProgressStyles(btn, kana) {
+   47:     if (!btn || !kana) return;
+   48:     ensureProgressLoaded();
+   49:     btn.classList.remove('achieved80', 'achieved90');
+   50:     btn.removeAttribute('data-best');
+   51:     const rec = progressMap[kana];
+   52:     if (!rec || typeof rec.bestScore !== 'number') return;
+   53:     const best = Math.max(0, Math.min(100, Math.round(rec.bestScore)));
+   54:     btn.setAttribute('data-best', String(best));
+   55:     if (best >= 80) btn.classList.add('achieved80');
+   56:     if (best >= 90) btn.classList.add('achieved90');
+   57:   }
+   58: 
+   59:   function refreshAllProgressStyles() {
+   60:     const grid = document.getElementById('char-grid');
+   61:     if (!grid) return;
+   62:     ensureProgressLoaded();
+   63:     grid.querySelectorAll('.char-btn').forEach(btn => {
+   64:       const kana = btn.dataset.kana;
+   65:       if (!kana) return;
+   66:       applyProgressStyles(btn, kana);
+   67:     });
+   68:   }
+   69: 
+   70:   function updateProgressOnCheck(kana, score) {
+   71:     if (!kana || typeof score !== 'number' || isNaN(score)) return;
+   72:     ensureProgressLoaded();
+   73:     const now = Date.now();
+   74:     const prev = progressMap[kana] || { bestScore: 0, lastScore: 0, updatedAt: 0 };
+   75:     const bestScore = Math.max(prev.bestScore || 0, score);
+   76:     progressMap[kana] = {
+   77:       bestScore,
+   78:       lastScore: score,
+   79:       updatedAt: now
+   80:     };
+   81:     saveProgress();
+   82:     refreshAllProgressStyles();
+   83:   }
+   84: 
+   85:   function init(initialKana) {
+   86:     if (typeof Draw === 'undefined') return;
+   87:     if (initialKana) {
+   88:       currentKana = initialKana;
+   89:       const cat = typeof getCategoryForKana === 'function' ? getCategoryForKana(initialKana) : 'basic';
+   90:       const catEl = document.getElementById('char-category');
+   91:       if (catEl && catEl.value !== cat) catEl.value = cat;
+   92:     }
+   93: 
+   94:     Draw.initCanvas('draw-canvas', 'feedback-canvas', 'template-canvas');
+   95:     Draw.setDifficultyGetter(() => document.getElementById('difficulty')?.value || 'trace');
+   96:     updateSettings();
+   97:     syncTemplate();
+   98:     Draw.clear();
+   99:     const diff = document.getElementById('difficulty')?.value;
+  100:     if (diff === 'fade') Draw.setFadeStart();
+  101: 
+  102:     document.getElementById('verdict-display').textContent = '';
+  103:     document.getElementById('verdict-display').className = 'verdict-display';
+  104:     Draw.clearFeedback();
+  105:     Draw.clearOverlay();
+  106:     clearError('practice-error');
+  107: 
+  108:     ensureProgressLoaded();
+  109:     buildCharGrid(document.getElementById('char-category')?.value || 'basic');
+  110:     bindPractice();
+  111:     ensurePracticeUxChrome();
+  112:     refreshHistoryPreviewIfVisible();
+  113:     updateSessionStatsUI();
+  114:     showFirstTimeGuide();
+  115:     // 邱壹・螟ｪ縺輔せ繝ｩ繧､繝繝ｼ繧堤樟蝨ｨ蛟､縺ｫ蜷医ｏ縺帙ｋ
+  116:     const strokeInput = document.getElementById('stroke-width');
+  117:     const strokeValEl = document.getElementById('stroke-width-val');
+  118:     if (strokeInput && strokeValEl && typeof Draw.getUserStrokeWidth === 'function') {
+  119:       const w = Draw.getUserStrokeWidth();
+  120:       strokeInput.value = w;
+  121:       strokeValEl.textContent = w;
+  122:     }
+  123:   }
+  124: 
+  125:   function updateSettings() {
+  126:     const zoneWidth = parseInt(document.getElementById('zone-width')?.value || '20', 10);
+  127:     const smoothing = parseFloat(document.getElementById('smoothing')?.value || '0.5');
+  128:     Draw.setSettings({ zoneWidth, smoothing });
+  129:     const strokeW = document.getElementById('stroke-width');
+  130:     if (strokeW && strokeW.value !== '') {
+  131:       Draw.setSettings({ userStrokeWidth: parseInt(strokeW.value, 10) });
+  132:     }
+  133:   }
+  134: 
+  135:   function buildStrokeCheckSignature(strokesData) {
+  136:     return (strokesData || []).map(function (s) {
+  137:       const pts = (s && s.points) ? s.points : [];
+  138:       const first = pts[0] || { x: 0, y: 0 };
+  139:       const last = pts[pts.length - 1] || first;
+  140:       return [
+  141:         pts.length,
+  142:         Math.round(first.x), Math.round(first.y),
+  143:         Math.round(last.x), Math.round(last.y)
+  144:       ].join(':');
+  145:     }).join('|');
+  146:   }
+  147: 
+  148:   /**
+  149:    * Tesseract.js 縺ｮ邨先棡縺九ｉ縲檎函繝・く繧ｹ繝医阪・譁・ｭ励・繧｢繝ｫ繝輔ぃ繝吶ャ繝亥呵｣懊阪後◎縺ｮ菫｡鬆ｼ蠎ｦ縲阪ｒ蜿悶ｊ蜃ｺ縺・   * - 險伜捷繧・焚蟄励・辟｡隕・   * - symbols 縺後≠繧後・縺昴％縺九ｉ縲√↑縺代ｌ縺ｰ words / text 縺九ｉ謗ｨ螳・   */
+  150:   function extractOcrInfo(ocrResult) {
+  151:     const info = { text: '', letter: '', confidence: 0 };
+  152:     if (!ocrResult || !ocrResult.data) return info;
+  153:     const data = ocrResult.data;
+  154:     info.text = (data.text || '').trim();
+  155: 
+  156:     function pushLetter(ch, conf) {
+  157:       if (!ch) return;
+  158:       const l = String(ch).toLowerCase();
+  159:       if (!/^[a-z]$/.test(l)) return;
+  160:       const c = (typeof conf === 'number' && isFinite(conf)) ? conf : 0;
+  161:       if (!info.letter || c > info.confidence) {
+  162:         info.letter = l;
+  163:         info.confidence = c;
+  164:       }
+  165:     }
+  166: 
+  167:     if (Array.isArray(data.symbols) && data.symbols.length > 0) {
+  168:       data.symbols.forEach(sym => {
+  169:         const ch = sym.text || sym.symbol || '';
+  170:         pushLetter(ch, sym.confidence);
+  171:       });
+  172:     } else if (Array.isArray(data.words) && data.words.length > 0) {
+  173:       data.words.forEach(word => {
+  174:         const text = word.text || '';
+  175:         const conf = word.confidence;
+  176:         for (let i = 0; i < text.length; i++) {
+  177:           pushLetter(text[i], conf);
+  178:         }
+  179:       });
+  180:     }
+  181: 
+  182:     if (!info.letter && info.text) {
+  183:       const lettersOnly = info.text.toLowerCase().replace(/[^a-z]/g, '');
+  184:       if (lettersOnly.length === 1) {
+  185:         info.letter = lettersOnly[0];
+  186:         const avgConf = (typeof data.confidence === 'number' && isFinite(data.confidence)) ? data.confidence : 0;
+  187:         info.confidence = avgConf;
+  188:       }
+  189:     }
+  190: 
+  191:     return info;
+  192:   }
+  193: 
+  194:   /**
+  195:    * 迴ｾ蝨ｨ縺ｮ繧ｹ繝医Ο繝ｼ繧ｯ繧偵・繧､繝ｳ繝・SON縺ｨ縺励※繝繧ｦ繝ｳ繝ｭ繝ｼ繝・   */
+  196:   function exportPointsJson() {
+  197:     if (typeof Draw === 'undefined' || !Draw.getStrokes || !Draw.getCanvasSize) return;
+  198:     const strokes = Draw.getStrokes();
+  199:     const size = Draw.getCanvasSize();
+  200:     const data = getKanaData(currentKana);
+  201: 
+  202:     getBestScoreMapWithFallback().then(function (bestInfo) {
+  203:       const obj = {
+  204:         kana: currentKana,
+  205:         romaji: data ? data.romaji : '',
+  206:         timestamp: Date.now(),
+  207:         canvasWidth: size ? size.width : 0,
+  208:         canvasHeight: size ? size.height : 0,
+  209:         strokes: strokes,
+  210:         // StudyXP snapshot is embedded so existing JSON export can be reused as an extended format.
+  211:         studyXPSnapshot: buildStudyXpPayload(bestInfo.bestMap, bestInfo.source)
+  212:       };
+  213:       downloadJsonFile(obj, 'strokes_' + (currentKana || '') + '_' + Date.now() + '.json');
+  214:     }).catch(function () {
+  215:       const obj = {
+  216:         kana: currentKana,
+  217:         romaji: data ? data.romaji : '',
+  218:         timestamp: Date.now(),
+  219:         canvasWidth: size ? size.width : 0,
+  220:         canvasHeight: size ? size.height : 0,
+  221:         strokes: strokes,
+  222:         studyXPSnapshot: buildStudyXpPayload({}, 'fallback:none')
+  223:       };
+  224:       downloadJsonFile(obj, 'strokes_' + (currentKana || '') + '_' + Date.now() + '.json');
+  225:     });
+  226:   }
+  227: 
+  228:   function exportStudyXpJson() {
+  229:     getBestScoreMapWithFallback().then(function (bestInfo) {
+  230:       const payload = buildStudyXpPayload(bestInfo.bestMap, bestInfo.source);
+  231:       downloadJsonFile(payload, 'studyxp_' + Date.now() + '.json');
+  232:     }).catch(function () {
+  233:       const payload = buildStudyXpPayload({}, 'fallback:none');
+  234:       downloadJsonFile(payload, 'studyxp_' + Date.now() + '.json');
+  235:     });
+  236:   }
+  237: 
+  238:   function downloadJsonFile(obj, filename) {
+  239:     const json = JSON.stringify(obj, null, 2);
+  240:     const blob = new Blob([json], { type: 'application/json' });
+  241:     const url = URL.createObjectURL(blob);
+  242:     const a = document.createElement('a');
+  243:     a.href = url;
+  244:     a.download = filename;
+  245:     a.click();
+  246:     URL.revokeObjectURL(url);
+  247:   }
+  248: 
+  249:   function getBestScoreMapWithFallback() {
+  250:     ensureProgressLoaded();
+  251:     const localMap = {};
+  252:     if (progressMap && typeof progressMap === 'object') {
+  253:       Object.keys(progressMap).forEach(function (kana) {
+  254:         const rec = progressMap[kana];
+  255:         const score = rec && typeof rec.bestScore === 'number' && isFinite(rec.bestScore) ? rec.bestScore : null;
+  256:         if (score != null) localMap[kana] = score;
+  257:       });
+  258:     }
+  259:     if (Object.keys(localMap).length > 0) {
+  260:       return Promise.resolve({ bestMap: localMap, source: 'localStorage:progress_v1' });
+  261:     }
+  262: 
+  263:     if (typeof getAllRecords === 'function') {
+  264:       return getAllRecords().then(function (records) {
+  265:         const map = {};
+  266:         (records || []).forEach(function (r) {
+  267:           if (!r || !r.kana || typeof r.score !== 'number' || !isFinite(r.score)) return;
+  268:           if (map[r.kana] == null || r.score > map[r.kana]) map[r.kana] = r.score;
+  269:         });
+  270:         return { bestMap: map, source: 'IndexedDB:history' };
+  271:       }).catch(function () {
+  272:         return { bestMap: {}, source: 'fallback:none' };
+  273:       });
+  274:     }
+  275: 
+  276:     return Promise.resolve({ bestMap: {}, source: 'fallback:none' });
+  277:   }
+  278: 
+  279:   function getStudyKanaList() {
+  280:     if (typeof KANA_DATA !== 'undefined' && Array.isArray(KANA_DATA)) {
+  281:       return KANA_DATA.filter(function (d) {
+  282:         return d && d.kana && d.romaji && !/^\(/.test(String(d.romaji));
+  283:       });
+  284:     }
+  285: 
+  286:     const categories = ['basic', 'dakuten', 'yoon', 'other'];
+  287:     const map = {};
+  288:     categories.forEach(function (cat) {
+  289:       const arr = (typeof getKanaByCategory === 'function') ? getKanaByCategory(cat) : [];
+  290:       (arr || []).forEach(function (d) {
+  291:         if (!d || !d.kana || !d.romaji || /^\(/.test(String(d.romaji))) return;
+  292:         map[d.kana] = d;
+  293:       });
+  294:     });
+  295:     return Object.keys(map).map(function (k) { return map[k]; });
+  296:   }
+  297: 
+  298:   function buildStudyXpPayload(bestMap, source) {
+  299:     const list = getStudyKanaList();
+  300:     const categoryLabelMap = {
+  301:       basic: '\u6e05\u97f3',
+  302:       dakuten: '\u6fc1\u97f3\u30fb\u534a\u6fc1\u97f3',
+  303:       yoon: '\u62d7\u97f3',
+  304:       other: '\u305d\u306e\u4ed6'
+  305:     };
+  306: 
+  307:     const categories = {};
+  308:     Object.keys(categoryLabelMap).forEach(function (cat) {
+  309:       categories[categoryLabelMap[cat]] = { count80: 0, count90: 0 };
+  310:     });
+  311: 
+  312:     let count80 = 0;
+  313:     let count90 = 0;
+  314:     list.forEach(function (item) {
+  315:       const score = bestMap && typeof bestMap[item.kana] === 'number' ? bestMap[item.kana] : 0;
+  316:       const key = categoryLabelMap[item.category] || categoryLabelMap.other;
+  317:       if (score >= 80) {
+  318:         count80 += 1;
+  319:         categories[key].count80 += 1;
+  320:       }
+  321:       if (score >= 90) {
+  322:         count90 += 1;
+  323:         categories[key].count90 += 1;
+  324:       }
+  325:     });
+  326: 
+  327:     const rawStudyXP = (count80 + count90) / 4;
+  328:     // Rounding policy: keep one decimal place (Math.round(value * 10) / 10).
+  329:     const studyXP = Math.round(rawStudyXP * 10) / 10;
+  330: 
+  331:     return {
+  332:       timestamp: new Date().toISOString(),
+  333:       totalKana: list.length,
+  334:       count80: count80,
+  335:       count90: count90,
+  336:       studyXP: studyXP,
+  337:       categories: categories,
+  338:       source: source
+  339:     };
+  340:   }
+  341: 
+  342:   function syncTemplate() {
+  343:     const data = getKanaData(currentKana);
+  344:     const romajiForDraw = (data && data.romaji && !/^\(/.test(data.romaji)) ? data.romaji : '';
+  345:     const kanaEl = document.getElementById('current-kana');
+  346:     if (kanaEl) kanaEl.textContent = currentKana;
+  347:     Draw.setTemplate(romajiForDraw);
+  348:   }
+  349: 
+  350:   function buildCharGrid(category) {
+  351:     const list = getKanaByCategory(category);
+  352:     const grid = document.getElementById('char-grid');
+  353:     if (!grid) return;
+  354:     grid.innerHTML = '';
+  355:     // Basic category uses gojuon row layout.
+  356:     if (category === 'basic') {
+  357:       const rows = [
+  358:         ['\u3042', '\u3044', '\u3046', '\u3048', '\u304A'],
+  359:         ['\u304B', '\u304D', '\u304F', '\u3051', '\u3053'],
+  360:         ['\u3055', '\u3057', '\u3059', '\u305B', '\u305D'],
+  361:         ['\u305F', '\u3061', '\u3064', '\u3066', '\u3068'],
+  362:         ['\u306A', '\u306B', '\u306C', '\u306D', '\u306E'],
+  363:         ['\u306F', '\u3072', '\u3075', '\u3078', '\u307B'],
+  364:         ['\u307E', '\u307F', '\u3080', '\u3081', '\u3082'],
+  365:         ['\u3084', '', '\u3086', '', '\u3088'],
+  366:         ['\u3089', '\u308A', '\u308B', '\u308C', '\u308D'],
+  367:         ['\u308F', '', '', '', '\u3092'],
+  368:         ['\u3093', '', '', '', '']
+  369:       ];
+  370:       rows.forEach(row => {
+  371:         row.forEach(k => {
+  372:           if (!k) {
+  373:             const empty = document.createElement('div');
+  374:             empty.className = 'char-cell-empty';
+  375:             grid.appendChild(empty);
+  376:             return;
+  377:           }
+  378:           const btn = document.createElement('button');
+  379:           btn.className = 'char-btn' + (k === currentKana ? ' active' : '');
+  380:           btn.textContent = k;
+  381:           btn.dataset.kana = k;
+  382:           btn.addEventListener('click', () => handleKanaClick(k, grid));
+  383:           applyProgressStyles(btn, k);
+  384:           grid.appendChild(btn);
+  385:         });
+  386:       });
+  387:       return;
+  388:     }
+  389:     // Other categories are rendered in a simple grid.
+  390:     list.forEach(d => {
+  391:       const btn = document.createElement('button');
+  392:       btn.className = 'char-btn' + (d.kana === currentKana ? ' active' : '');
+  393:       btn.textContent = d.kana;
+  394:       btn.dataset.kana = d.kana;
+  395:       btn.addEventListener('click', () => handleKanaClick(d.kana, grid));
+  396:       applyProgressStyles(btn, d.kana);
+  397:       grid.appendChild(btn);
+  398:     });
+  399:   }
+  400: 
+  401:   function handleKanaClick(kana, grid) {
+  402:     currentKana = kana;
+  403:     if (grid) {
+  404:       grid.querySelectorAll('.char-btn').forEach(b => b.classList.remove('active'));
+  405:       const target = Array.prototype.find.call(grid.querySelectorAll('.char-btn'), b => b.dataset.kana === kana);
+  406:       if (target) target.classList.add('active');
+  407:     }
+  408:     syncTemplate();
+  409:     Draw.clear();
+  410:     Draw.clearOverlay();
+  411:     const verdictEl = document.getElementById('verdict-display');
+  412:     if (verdictEl) {
+  413:       verdictEl.textContent = '';
+  414:       verdictEl.className = 'verdict-display';
+  415:     }
+  416:     Draw.clearFeedback();
+  417:     if (document.getElementById('difficulty')?.value === 'fade') Draw.setFadeStart();
+  418:     Draw.redrawAll();
+  419:     refreshHistoryPreviewIfVisible();
+  420:   }
+  421: 
+  422:   function bindPractice() {
+  423:     if (practiceBound) return;
+  424:     practiceBound = true;
+  425: 
+  426:     const catEl = document.getElementById('char-category');
+  427:     if (catEl) catEl.addEventListener('change', e => { buildCharGrid(e.target.value); });
+  428: 
+  429:     const zoneEl = document.getElementById('zone-width');
+  430:     if (zoneEl) {
+  431:       zoneEl.addEventListener('input', e => {
+  432:         document.getElementById('zone-width-val').textContent = e.target.value;
+  433:         updateSettings();
+  434:         syncTemplate();
+  435:         Draw.redrawAll();
+  436:       });
+  437:     }
+  438:     const smoothEl = document.getElementById('smoothing');
+  439:     if (smoothEl) {
+  440:       smoothEl.addEventListener('input', e => {
+  441:         document.getElementById('smoothing-val').textContent = e.target.value;
+  442:         updateSettings();
+  443:       });
+  444:     }
+  445:     const passEl = document.getElementById('pass-line');
+  446:     if (passEl) passEl.addEventListener('input', e => { document.getElementById('pass-line-val').textContent = e.target.value; });
+  447: 
+  448:     const strokeWidthEl = document.getElementById('stroke-width');
+  449:     if (strokeWidthEl) {
+  450:       strokeWidthEl.addEventListener('input', e => {
+  451:         const val = e.target.value;
+  452:         const valEl = document.getElementById('stroke-width-val');
+  453:         if (valEl) valEl.textContent = val;
+  454:         Draw.setSettings({ userStrokeWidth: parseInt(val, 10) });
+  455:         Draw.redrawAll();
+  456:       });
+  457:     }
+  458: 
+  459:     const exportJsonBtn = document.getElementById('btn-export-json');
+  460:     if (exportJsonBtn) exportJsonBtn.addEventListener('click', exportPointsJson);
+  461: 
+  462:     const exportStudyXpBtn = document.getElementById('btn-export-studyxp');
+  463:     if (exportStudyXpBtn) exportStudyXpBtn.addEventListener('click', exportStudyXpJson);
+  464: 
+  465:     const diffEl = document.getElementById('difficulty');
+  466:     if (diffEl) {
+  467:       diffEl.addEventListener('change', () => {
+  468:         Draw.resetFade();
+  469:         syncTemplate();
+  470:         Draw.clearFeedback();
+  471:         Draw.redrawAll();
+  472:       });
+  473:     }
+  474: 
+  475:     const checkBtn = document.getElementById('btn-check');
+  476:     if (checkBtn) checkBtn.addEventListener('click', doCheck);
+  477:     const clearBtn = document.getElementById('btn-clear');
+  478:     if (clearBtn) clearBtn.addEventListener('click', () => {
+  479:       Draw.resetFade();
+  480:       Draw.clear();
+  481:       Draw.clearOverlay();
+  482:       Draw.clearFeedback();
+  483:       hideOverlayButton();
+  484:       const v = document.getElementById('verdict-display');
+  485:       if (v) {
+  486:         v.textContent = '';
+  487:         v.className = 'verdict-display';
+  488:       }
+  489:       const panel = document.getElementById('grading-debug-panel');
+  490:       if (panel) panel.textContent = '';
+  491:       const hints = document.getElementById('practice-feedback-hints');
+  492:       if (hints) hints.textContent = '';
+  493:       updateNextActionCue({ score: 0 }, 999);
+  494:     });
+  495:     const nextBtn = document.getElementById('btn-next');
+  496:     if (nextBtn) nextBtn.addEventListener('click', doNext);
+  497: 
+  498:     const historyToggle = document.getElementById('practice-history-toggle');
+  499:     if (historyToggle) {
+  500:       historyToggle.addEventListener('click', () => {
+  501:         const block = document.getElementById('practice-history-preview');
+  502:         if (!block) return;
+  503:         const show = block.classList.toggle('hidden');
+  504:         historyToggle.textContent = show ? 'Show History' : 'Hide History';
+  505:         if (!show) refreshHistoryPreview();
+  506:         // 繝ｬ繧､繧｢繧ｦ繝亥､画峩蠕後ｂ繝・Φ繝励Ξ繝ｻ4邱壹→蜈･蜉帑ｽ咲ｽｮ縺御ｸ閾ｴ縺吶ｋ繧医≧螳牙・縺ｫ蜷梧悄・句・謠冗判
+  507:         if (typeof Draw.syncCanvasToWrap === 'function') Draw.syncCanvasToWrap();
+  508:         Draw.redrawAll();
+  509:       });
+  510:     }
+  511:   }
+  512: 
+  513:   function doCheck() {
+  514:     if (practiceCheckInFlight) return;
+  515:     practiceCheckInFlight = true;
+  516:     const checkBtn = document.getElementById('btn-check');
+  517:     if (checkBtn) checkBtn.disabled = true;
+  518: 
+  519:     updateSettings();
+  520:     const strokesData = Draw.getStrokes();
+  521:     const data = getKanaData(currentKana);
+  522:     const templateInfo = Draw.getTemplateForGrading();
+  523:     if (!templateInfo.romaji || templateInfo.romaji.length === 0) {
+  524:       showError('practice-error', 'この文字の見本がありません');
+  525:       practiceCheckInFlight = false;
+  526:       if (checkBtn) checkBtn.disabled = false;
+  527:       return;
+  528:     }
+  529:     const passLine = parseInt(document.getElementById('pass-line')?.value || '70', 10);
+  530:     const difficulty = document.getElementById('difficulty')?.value || 'trace';
+  531:     const vEl = document.getElementById('verdict-display');
+  532:     const checkSig = currentKana + '|' + difficulty + '|' + buildStrokeCheckSignature(strokesData);
+  533:     const now = Date.now();
+  534:     if (checkSig === lastPracticeCheckSig && (now - lastPracticeCheckAt) < 1200) {
+  535:       practiceCheckInFlight = false;
+  536:       if (checkBtn) checkBtn.disabled = false;
+  537:       return;
+  538:     }
+  539:     lastPracticeCheckSig = checkSig;
+  540:     lastPracticeCheckAt = now;
+  541: 
+  542:     function applyResult(result) {
+  543:       practiceCheckInFlight = false;
+  544:       if (checkBtn) checkBtn.disabled = false;
+  545: 
+  546:       ensurePracticeUxChrome();
+  547:       const userMsg = result.userMessage || result.message || '';
+  548:       vEl.textContent = userMsg + ' (' + result.score + ' ' + '\u70b9)';
+  549:       vEl.className = 'verdict-display ' + result.verdict;
+  550:       vEl.classList.remove('celebrate80', 'celebrate90');
+  551:       if (result.score >= 90) vEl.classList.add('celebrate90');
+  552:       else if (result.score >= 80) vEl.classList.add('celebrate80');
+  553:       Draw.drawFeedback(result.outsidePixels);
+  554:       const debugToggle = document.getElementById('debug-bbox-toggle');
+  555:       if (debugToggle && debugToggle.checked && typeof Draw.drawDebugBoxes === 'function') {
+  556:         Draw.drawDebugBoxes(result.debug);
+  557:       }
+  558:       const gradingDebugToggle = document.getElementById('grading-debug-toggle');
+  559:       const panel = document.getElementById('grading-debug-panel');
+  560:       if (panel) {
+  561:         if (gradingDebugToggle && gradingDebugToggle.checked) {
+  562:           const inside = result.inside ?? 0;
+  563:           const outside = result.outside ?? 0;
+  564:           const total = inside + outside || 1;
+  565:           const outsideRate = result.outsideRate ?? (outside / total);
+  566:           const coverage = result.coverage ?? 0;
+  567:           const lengthGate = result.lengthGate ?? 0;
+  568:           const lengthTotal = result.lengthTotal ?? 0;
+  569:           const baseScore = result.baseScore ?? 0;
+  570:           const finalScore = result.score ?? 0;
+  571:           const ocrInfo = result.ocrText != null && result.ocrText !== ''
+  572:             ? String(result.ocrText)
+  573:             : '(譛ｪ螳溯｡後∪縺溘・邨先棡縺ｪ縺・';
+  574:           const perBoxLine = (result.perBox && result.perBox.length > 0)
+  575:             ? 'perBox: ' + result.perBox.map(function (b) { return b.score; }).join(', ') + '\n'
+  576:             : '';
+  577:           const userReason = (result.reasonUserList && result.reasonUserList.length > 0)
+  578:             ? result.reasonUserList.join(' / ')
+  579:             : (result.userMessage || result.message || '(none)');
+  580:           const devReason = (result.reasonDevList && result.reasonDevList.length > 0)
+  581:             ? result.reasonDevList.join(' | ')
+  582:             : (result.developerMessage || '(none)');
+  583:           const shapeScore = result.shapeScore ?? 0;
+  584:           const distScore = result.distributionScore ?? 0;
+  585:           const rescueBonus = result.rescueBonus ?? 0;
+  586:           const tinyIgnored = result.ignoredTinyStrokes ?? 0;
+  587:           const ocrDecision = result.ocrDecision && result.ocrDecision.mode
+  588:             ? result.ocrDecision.mode
+  589:             : '-';
+  590:           panel.textContent =
+  591:             '[User] ' + userReason + '\n' +
+  592:             '[Dev] ' + devReason + '\n' +
+  593:             perBoxLine +
+  594:             `inside: ${inside} / outside: ${outside} (rate: ${(outsideRate * 100).toFixed(1)}%)\n` +
+  595:             `coverage: ${(coverage * 100).toFixed(1)}% / shape: ${shapeScore} / dist: ${distScore} / rescue: +${rescueBonus}\n` +
+  596:             `length: total ${lengthTotal.toFixed(1)} / gate ${lengthGate.toFixed(1)} / tinyIgnored: ${tinyIgnored}\n` +
+  597:             `baseScore: ${baseScore} / finalScore: ${finalScore} / OCR mode: ${ocrDecision}\n` +
+  598:             `OCR: ${ocrInfo}`;
+  599:           if (typeof Draw.drawClassificationOverlay === 'function') {
+  600:             Draw.drawClassificationOverlay(result.insidePixels, result.outsidePixels);
+  601:           }
+  602:         } else {
+  603:           panel.textContent = '';
+  604:         }
+  605:       }
+  606:       updateProgressOnCheck(currentKana, result.score);
+  607:       updateSessionProgress(result, passLine);
+  608:       renderResultHints(result, passLine);
+  609:       updateSessionStatsUI();
+  610:       updateNextActionCue(result, passLine);
+  611:       const saveSig = currentKana + '|' + difficulty + '|' + buildStrokeCheckSignature(strokesData);
+  612:       const saveNow = Date.now();
+  613:       if (saveSig === lastPracticeSaveSig && (saveNow - lastPracticeSaveAt) < 15000) {
+  614:         return;
+  615:       }
+  616:       lastPracticeSaveSig = saveSig;
+  617:       lastPracticeSaveAt = saveNow;
+  618: 
+  619:       const record = {
+  620:         timestamp: Date.now(),
+  621:         kana: currentKana,
+  622:         romaji: data ? data.romaji : templateInfo.romaji,
+  623:         difficulty: document.getElementById('difficulty')?.value || 'trace',
+  624:         settings: {
+  625:           zoneWidth: parseInt(document.getElementById('zone-width')?.value || '20', 10),
+  626:           smoothing: parseFloat(document.getElementById('smoothing')?.value || '0.5'),
+  627:           passLine: parseInt(document.getElementById('pass-line')?.value || '70', 10)
+  628:         },
+  629:         score: result.score,
+  630:         verdict: result.verdict,
+  631:         strokes: strokesData.map(s => ({ points: compressPoints(s.points, 300) })),
+  632:         canvasWidth: templateInfo.width,
+  633:         canvasHeight: templateInfo.height,
+  634:         templateRomaji: templateInfo.romaji,
+  635:         templateLayout: { font: templateInfo.font, fontSize: templateInfo.fontSize, textX: templateInfo.textX, textY: templateInfo.textY }
+  636:       };
+  637:       addRecord(record).then(() => {
+  638:         refreshHistoryPreviewIfVisible();
+  639:       }).catch(err => {
+  640:         // Allow retry if save failed.
+  641:         lastPracticeSaveSig = '';
+  642:         lastPracticeSaveAt = 0;
+  643:         showError('practice-error', '履歴の保存に失敗しました: ' + (err.message || err));
+  644:       });
+  645:     }
+  646: 
+  647:     const boxes = templateInfo.boxes || [];
+  648:     const multiBox = boxes.length > 1 && typeof Draw.getImageForOCRBox === 'function';
+  649:     const hasTesseract = typeof Tesseract !== 'undefined' && Tesseract.recognize;
+  650: 
+  651:     if (multiBox && hasTesseract) {
+  652:       vEl.textContent = '隱崎ｭ倅ｸｭ...';
+  653:       vEl.className = 'verdict-display';
+  654:       const promises = boxes.map(function (_, i) {
+  655:         const canvas = Draw.getImageForOCRBox(i);
+  656:         return canvas ? Tesseract.recognize(canvas, 'eng', { logger: function () {} }) : Promise.resolve(null);
+  657:       });
+  658:       Promise.all(promises)
+  659:         .then(function (ocrResults) {
+  660:           const ocrPerBox = ocrResults.map(function (r) {
+  661:             return r ? extractOcrInfo(r) : { text: '', letter: '', confidence: 0 };
+  662:           });
+  663:           const result = Grading.grade(strokesData, templateInfo, passLine, {
+  664:             difficulty: difficulty,
+  665:             ocrPerBox: ocrPerBox
+  666:           });
+  667:           applyResult(result);
+  668:         })
+  669:         .catch(function () {
+  670:           const result = Grading.grade(strokesData, templateInfo, passLine, { difficulty: difficulty });
+  671:           applyResult(result);
+  672:         });
+  673:       return;
+  674:     }
+  675: 
+  676:     const ocrCanvas = typeof Draw.getImageForOCR === 'function' ? Draw.getImageForOCR() : null;
+  677:     if (ocrCanvas && hasTesseract) {
+  678:       vEl.textContent = '隱崎ｭ倅ｸｭ...';
+  679:       vEl.className = 'verdict-display';
+  680:       Tesseract.recognize(ocrCanvas, 'eng', { logger: function () {} })
+  681:         .then(function (ocrResult) {
+  682:           const ocrInfo = extractOcrInfo(ocrResult);
+  683:           const result = Grading.grade(strokesData, templateInfo, passLine, {
+  684:             difficulty: difficulty,
+  685:             ocrText: ocrInfo.text,
+  686:             ocrLetter: ocrInfo.letter,
+  687:             ocrConfidence: ocrInfo.confidence
+  688:           });
+  689:           applyResult(result);
+  690:         })
+  691:         .catch(function () {
+  692:           const result = Grading.grade(strokesData, templateInfo, passLine, { difficulty: difficulty });
+  693:           applyResult(result);
+  694:         });
+  695:       return;
+  696:     }
+  697:     const result = Grading.grade(strokesData, templateInfo, passLine, { difficulty });
+  698:     applyResult(result);
+  699:   }
+  700: 
+  701:   function doNext() {
+  702:     const list = getKanaByCategory(document.getElementById('char-category')?.value || 'basic');
+  703:     const idx = list.findIndex(d => d.kana === currentKana);
+  704:     const next = list[(idx + 1) % list.length];
+  705:     if (next) {
+  706:       currentKana = next.kana;
+  707:       document.querySelectorAll('#char-grid .char-btn').forEach(b => {
+  708:         b.classList.toggle('active', b.dataset.kana === currentKana);
+  709:       });
+  710:       syncTemplate();
+  711:       Draw.clear();
+  712:       Draw.clearOverlay();
+  713:       document.getElementById('verdict-display').textContent = '';
+  714:       document.getElementById('verdict-display').className = 'verdict-display';
+  715:       Draw.clearFeedback();
+  716:       updateNextActionCue({ score: 0 }, 999);
+  717:       hideOverlayButton();
+  718:       refreshHistoryPreviewIfVisible();
+  719:     }
+  720:   }
+  721: 
+  722:   function refreshHistoryPreviewIfVisible() {
+  723:     const block = document.getElementById('practice-history-preview');
+  724:     if (block && !block.classList.contains('hidden')) refreshHistoryPreview();
+  725:   }
+  726: 
+  727:   function refreshHistoryPreview() {
+  728:     const container = document.getElementById('practice-history-list');
+  729:     if (!container) return;
+  730:     container.innerHTML = '<p class="loading">隱ｭ縺ｿ霎ｼ縺ｿ荳ｭ窶ｦ</p>';
+  731:     getLatestByKana(currentKana, 10).then(records => {
+  732:       container.innerHTML = '';
+  733:       if (records.length === 0) {
+  734:         container.innerHTML = '<p class="muted">縺薙・譁・ｭ励・螻･豁ｴ縺ｯ縺ｾ縺縺ゅｊ縺ｾ縺帙ｓ</p>';
+  735:         return;
+  736:       }
+  737:       const size = { w: 56, h: 42 };
+  738:       records.forEach(r => {
+  739:         const div = document.createElement('div');
+  740:         div.className = 'practice-history-item';
+  741:         const canvas = document.createElement('canvas');
+  742:         canvas.width = size.w;
+  743:         canvas.height = size.h;
+  744:         canvas.className = 'practice-history-thumb';
+  745:         const ctx = canvas.getContext('2d');
+  746:         ctx.fillStyle = '#f8fafc';
+  747:         ctx.fillRect(0, 0, size.w, size.h);
+  748:         const rw = r.canvasWidth || 400;
+  749:         const rh = r.canvasHeight || 300;
+  750:         const sx = size.w / rw;
+  751:         const sy = size.h / rh;
+  752:         const strokes = r.strokes || (r.points ? [{ points: r.points }] : []);
+  753:         ctx.strokeStyle = '#333';
+  754:         ctx.lineWidth = 2;
+  755:         ctx.lineCap = 'round';
+  756:         ctx.lineJoin = 'round';
+  757:         strokes.forEach(s => {
+  758:           const pts = s.points || s;
+  759:           if (pts.length < 2) return;
+  760:           ctx.beginPath();
+  761:           ctx.moveTo(pts[0].x * sx, pts[0].y * sy);
+  762:           for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x * sx, pts[i].y * sy);
+  763:           ctx.stroke();
+  764:         });
+  765:         const label = document.createElement('div');
+  766:         label.className = 'practice-history-label';
+  767:         const vLabel = { green: 'Pass', yellow: 'Close', red: 'Retry' }[r.verdict] || '';
+  768:         label.textContent = `${formatDateShort(r.timestamp)} ${r.score}轤ｹ ${vLabel}`;
+  769:         div.appendChild(canvas);
+  770:         div.appendChild(label);
+  771:         div.addEventListener('click', () => showOverlay(r));
+  772:         container.appendChild(div);
+  773:       });
+  774:     }).catch(() => {
+  775:       container.innerHTML = '<p class="muted">隱ｭ縺ｿ霎ｼ縺ｿ縺ｫ螟ｱ謨励＠縺ｾ縺励◆</p>';
+  776:     });
+  777:   }
+  778: 
+  779:   function formatDateShort(ts) {
+  780:     if (!ts) return '';
+  781:     const d = new Date(ts);
+  782:     return d.toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric' }) + ' ' + d.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
+  783:   }
+  784: 
+  785:   function showOverlay(record) {
+  786:     const rw = record.canvasWidth || 400;
+  787:     const rh = record.canvasHeight || 300;
+  788:     const size = Draw.getCanvasSize();
+  789:     if (!size) return;
+  790:     const sx = size.width / rw;
+  791:     const sy = size.height / rh;
+  792:     const strokes = record.strokes || (record.points ? [{ points: record.points }] : []);
+  793:     const scaled = strokes.map(s => ({
+  794:       points: (s.points || s).map(p => ({ ...p, x: p.x * sx, y: p.y * sy }))
+  795:     }));
+  796:     Draw.setOverlayStrokes(scaled);
+  797:     Draw.redrawAll();
+  798:     showOverlayButton();
+  799:   }
+  800: 
+  801:   function showOverlayButton() {
+  802:     let btn = document.getElementById('practice-overlay-clear');
+  803:     if (!btn) {
+  804:       btn = document.createElement('button');
+  805:       btn.id = 'practice-overlay-clear';
+  806:       btn.className = 'action-btn';
+  807:       btn.textContent = '繧ｪ繝ｼ繝舌・繝ｬ繧､繧呈ｶ医☆';
+  808:       btn.addEventListener('click', () => {
+  809:         Draw.clearOverlay();
+  810:         Draw.redrawAll();
+  811:         hideOverlayButton();
+  812:       });
+  813:       const controls = document.querySelector('.practice-controls') || document.querySelector('.practice-right');
+  814:       if (controls) controls.insertBefore(btn, document.getElementById('verdict-display'));
+  815:     }
+  816:     btn.style.visibility = 'visible';
+  817:   }
+  818: 
+  819:   function hideOverlayButton() {
+  820:     const btn = document.getElementById('practice-overlay-clear');
+  821:     if (btn) btn.style.visibility = 'hidden';
+  822:   }
+  823: 
+  824:   function ensurePracticeUxChrome() {
+  825:     const right = document.querySelector('.practice-right');
+  826:     if (right && !document.getElementById('practice-onboarding')) {
+  827:       const guide = document.createElement('div');
+  828:       guide.id = 'practice-onboarding';
+  829:       guide.className = 'practice-onboarding hidden';
+  830:       guide.innerHTML = '<strong>Quick Guide</strong><p>1) Pick a character, 2) write it, 3) press Check. Aim for 80+ and keep moving with Next.</p><button type="button" id="practice-guide-close" class="action-btn">OK</button>';
+  831:       right.insertBefore(guide, right.firstChild);
+  832:       const close = guide.querySelector('#practice-guide-close');
+  833:       if (close) close.addEventListener('click', function () {
+  834:         guide.classList.add('hidden');
+  835:         try { localStorage.setItem(GUIDE_SEEN_KEY, '1'); } catch (e) {}
+  836:       });
+  837:     }
+  838: 
+  839:     const buttonsRow = document.querySelector('.practice-buttons');
+  840:     if (buttonsRow && !document.getElementById('btn-export-studyxp')) {
+  841:       const btn = document.createElement('button');
+  842:       btn.type = 'button';
+  843:       btn.id = 'btn-export-studyxp';
+  844:       btn.className = 'action-btn';
+  845:       btn.textContent = 'StudyXP JSON';
+  846:       btn.addEventListener('click', exportStudyXpJson);
+  847:       buttonsRow.appendChild(btn);
+  848:     }
+  849: 
+  850:     const controls = document.querySelector('.practice-controls');
+  851:     if (controls && !document.getElementById('practice-session-stats')) {
+  852:       const stats = document.createElement('div');
+  853:       stats.id = 'practice-session-stats';
+  854:       stats.className = 'practice-session-stats';
+  855:       controls.insertBefore(stats, controls.firstChild);
+  856:     }
+  857: 
+  858:     const verdict = document.getElementById('verdict-display');
+  859:     if (verdict && !document.getElementById('practice-feedback-hints')) {
+  860:       const hints = document.createElement('div');
+  861:       hints.id = 'practice-feedback-hints';
+  862:       hints.className = 'practice-feedback-hints';
+  863:       verdict.insertAdjacentElement('afterend', hints);
+  864:     }
+  865: 
+  866:     const sliders = document.querySelector('.support-sliders');
+  867:     if (sliders && !sliders.closest('details')) {
+  868:       const details = document.createElement('details');
+  869:       details.className = 'settings-details';
+  870:       details.id = 'practice-advanced-settings';
+  871:       const summary = document.createElement('summary');
+  872:       summary.textContent = 'Advanced settings';
+  873:       details.appendChild(summary);
+  874:       sliders.parentNode.insertBefore(details, sliders);
+  875:       details.appendChild(sliders);
+  876:     }
+  877: 
+  878:     const debugToggle = document.querySelector('.practice-controls .debug-toggle');
+  879:     const debugPanel = document.getElementById('grading-debug-panel');
+  880:     if (debugToggle && debugPanel && !debugToggle.closest('details')) {
+  881:       const details = document.createElement('details');
+  882:       details.className = 'debug-details';
+  883:       details.id = 'practice-debug-details';
+  884:       const summary = document.createElement('summary');
+  885:       summary.textContent = 'Debug';
+  886:       details.appendChild(summary);
+  887:       debugToggle.parentNode.insertBefore(details, debugToggle);
+  888:       details.appendChild(debugToggle);
+  889:       details.appendChild(debugPanel);
+  890:     }
+  891:   }
+  892: 
+  893:   function showFirstTimeGuide() {
+  894:     const guide = document.getElementById('practice-onboarding');
+  895:     if (!guide) return;
+  896:     let seen = '1';
+  897:     try { seen = localStorage.getItem(GUIDE_SEEN_KEY) || ''; } catch (e) {}
+  898:     guide.classList.toggle('hidden', !!seen);
+  899:   }
+  900: 
+  901:   function updateSessionProgress(result, passLine) {
+  902:     sessionChecks += 1;
+  903:     if (result && typeof result.score === 'number' && result.score >= passLine) {
+  904:       sessionPasses += 1;
+  905:       sessionStreak += 1;
+  906:       const activeBtn = document.querySelector('#char-grid .char-btn.active');
+  907:       if (activeBtn && result.score >= 80) {
+  908:         activeBtn.classList.remove('score-pop');
+  909:         void activeBtn.offsetWidth;
+  910:         activeBtn.classList.add('score-pop');
+  911:       }
+  912:     } else {
+  913:       sessionStreak = 0;
+  914:     }
+  915:   }
+  916: 
+  917:   function updateSessionStatsUI() {
+  918:     const el = document.getElementById('practice-session-stats');
+  919:     if (!el) return;
+  920:     const rate = sessionChecks > 0 ? Math.round((sessionPasses / sessionChecks) * 100) : 0;
+  921:     const best = progressMap && progressMap[currentKana] ? Math.round(progressMap[currentKana].bestScore || 0) : 0;
+  922:     el.textContent = 'Streak: ' + sessionStreak + ' / Pass rate: ' + rate + '% / Best: ' + best + ' pts';
+  923:   }
+  924: 
+  925:   function renderResultHints(result, passLine) {
+  926:     const el = document.getElementById('practice-feedback-hints');
+  927:     if (!el || !result) return;
+  928:     const good = (result.score >= passLine)
+  929:       ? 'Good: your stroke shape is close to the template.'
+  930:       : 'Good: you completed the character stroke.';
+  931:     const fix = (result.reasonUserList && result.reasonUserList.length > 0)
+  932:       ? result.reasonUserList[result.reasonUserList.length - 1]
+  933:       : 'Try a small position adjustment on the next attempt.';
+  934:     el.textContent = good + ' Improve: ' + fix;
+  935:   }
+  936: 
+  937:   function updateNextActionCue(result, passLine) {
+  938:     const nextBtn = document.getElementById('btn-next');
+  939:     if (!nextBtn) return;
+  940:     const canSuggest = result && typeof result.score === 'number' && result.score >= passLine;
+  941:     nextBtn.classList.toggle('next-suggest', !!canSuggest);
+  942:     nextBtn.textContent = canSuggest ? 'Next >' : 'Next';
+  943:   }
+  944: 
+  945:   function redraw() {
+  946:     Draw.redrawAll();
+  947:   }
+  948: 
+  949:   function getCurrentKana() {
+  950:     return currentKana;
+  951:   }
+  952: 
+  953:   global.Practice = {
+  954:     init,
+  955:     getCurrentKana
+  956:   };
+  957: })(typeof window !== 'undefined' ? window : this);

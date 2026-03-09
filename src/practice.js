@@ -8,6 +8,15 @@
 
   let currentKana = 'あ';
   let practiceBound = false;
+  // Prevent duplicate grading/saving caused by rapid re-clicks during OCR.
+  let practiceCheckInFlight = false;
+  // Prevent accidental double-submit when the same input is checked repeatedly in a short interval.
+  let lastPracticeCheckSig = '';
+  let lastPracticeCheckAt = 0;
+  let lastPracticeSaveSig = '';
+  let lastPracticeSaveAt = 0;
+  // Incremented per check/navigation to ignore stale async OCR results safely.
+  let practiceCheckSeq = 0;
 
   // 文字ごとの達成状況（localStorage 保存用）
   // progressMap: { [kana: string]: { bestScore: number, lastScore: number, updatedAt: number } }
@@ -122,16 +131,20 @@
    * - symbols があればそこから、なければ words / text から推定
    */
   function extractOcrInfo(ocrResult) {
-    const info = { text: '', letter: '', confidence: 0 };
+    const info = { text: '', letter: '', confidence: 0, alphaLength: 0, source: 'none' };
     if (!ocrResult || !ocrResult.data) return info;
     const data = ocrResult.data;
     info.text = (data.text || '').trim();
+    const alphaText = info.text.toLowerCase().replace(/[^a-z]/g, '');
+    info.alphaLength = alphaText.length;
 
     function pushLetter(ch, conf) {
       if (!ch) return;
       const l = String(ch).toLowerCase();
       if (!/^[a-z]$/.test(l)) return;
-      const c = (typeof conf === 'number' && isFinite(conf)) ? conf : 0;
+      const c = (typeof conf === 'number' && isFinite(conf))
+        ? Math.max(0, Math.min(100, conf))
+        : 0;
       if (!info.letter || c > info.confidence) {
         info.letter = l;
         info.confidence = c;
@@ -143,6 +156,7 @@
         const ch = sym.text || sym.symbol || '';
         pushLetter(ch, sym.confidence);
       });
+      if (info.letter) info.source = 'symbols';
     } else if (Array.isArray(data.words) && data.words.length > 0) {
       data.words.forEach(word => {
         const text = word.text || '';
@@ -151,23 +165,47 @@
           pushLetter(text[i], conf);
         }
       });
+      if (info.letter) info.source = 'words';
     }
 
     if (!info.letter && info.text) {
-      const lettersOnly = info.text.toLowerCase().replace(/[^a-z]/g, '');
-      if (lettersOnly.length === 1) {
-        info.letter = lettersOnly[0];
+      if (alphaText.length === 1) {
+        info.letter = alphaText[0];
         const avgConf = (typeof data.confidence === 'number' && isFinite(data.confidence)) ? data.confidence : 0;
-        info.confidence = avgConf;
+        info.confidence = Math.max(0, Math.min(100, avgConf));
+        info.source = 'text';
       }
     }
 
     return info;
   }
 
-  /**
-   * 現在のストロークをポイントJSONとしてダウンロード
-   */
+  function getOcrCanvasStats(canvas) {
+    if (!canvas) return { ok: false };
+    const w = canvas.width || 0;
+    const h = canvas.height || 0;
+    if (!w || !h) return { ok: false, width: w, height: h };
+    const ctx = canvas.getContext('2d');
+    if (!ctx || !ctx.getImageData) return { ok: true, width: w, height: h, inkRatio: null };
+    try {
+      const data = ctx.getImageData(0, 0, w, h).data;
+      let ink = 0;
+      const total = w * h;
+      for (let i = 0; i < data.length; i += 4) {
+        const luminance = (data[i] + data[i + 1] + data[i + 2]) / 3;
+        if (luminance < 245) ink++;
+      }
+      return { ok: true, width: w, height: h, inkRatio: total > 0 ? ink / total : 0 };
+    } catch (_) {
+      return { ok: true, width: w, height: h, inkRatio: null };
+    }
+  }
+
+  function logOcrTrace(stage, payload) {
+    if (typeof console === 'undefined' || !console.log) return;
+    console.log('[OCR][Practice]', stage, payload || {});
+  }
+
   function exportPointsJson() {
     if (typeof Draw === 'undefined' || !Draw.getStrokes || !Draw.getCanvasSize) return;
     const strokes = Draw.getStrokes();
@@ -359,26 +397,55 @@
   }
 
   function doCheck() {
+    if (practiceCheckInFlight) return;
+    practiceCheckInFlight = true;
+    const checkSeq = ++practiceCheckSeq;
+    const checkKana = currentKana;
+    const checkBtn = document.getElementById('btn-check');
+    if (checkBtn) checkBtn.disabled = true;
+    const nextBtn = document.getElementById('btn-next');
+    if (nextBtn) nextBtn.disabled = true;
+
     updateSettings();
     const strokesData = Draw.getStrokes();
     const data = getKanaData(currentKana);
     const templateInfo = Draw.getTemplateForGrading();
     if (!templateInfo.romaji || templateInfo.romaji.length === 0) {
-      showError('practice-error', 'この文字は手本がありません');
+      showError('practice-error', 'Template is missing for this character');
+      practiceCheckInFlight = false;
+      if (checkBtn) checkBtn.disabled = false;
+      if (nextBtn) nextBtn.disabled = false;
       return;
     }
     const passLine = parseInt(document.getElementById('pass-line')?.value || '70', 10);
     const difficulty = document.getElementById('difficulty')?.value || 'trace';
     const vEl = document.getElementById('verdict-display');
+    const checkSig = currentKana + '|' + difficulty + '|' + buildStrokeCheckSignature(strokesData);
+    const now = Date.now();
+    if (checkSig === lastPracticeCheckSig && (now - lastPracticeCheckAt) < 1200) {
+      practiceCheckInFlight = false;
+      if (checkBtn) checkBtn.disabled = false;
+      if (nextBtn) nextBtn.disabled = false;
+      return;
+    }
+    lastPracticeCheckSig = checkSig;
+    lastPracticeCheckAt = now;
 
     function applyResult(result) {
-      vEl.textContent = `${result.message}（${result.score}点）`;
+      practiceCheckInFlight = false;
+      if (checkBtn) checkBtn.disabled = false;
+      if (nextBtn) nextBtn.disabled = false;
+      if (checkSeq !== practiceCheckSeq || checkKana !== currentKana) return;
+
+      const userMsg = result.userMessage || result.message || '';
+      vEl.textContent = userMsg + ' (' + result.score + ' pts)';
       vEl.className = 'verdict-display ' + result.verdict;
       Draw.drawFeedback(result.outsidePixels);
       const debugToggle = document.getElementById('debug-bbox-toggle');
       if (debugToggle && debugToggle.checked && typeof Draw.drawDebugBoxes === 'function') {
         Draw.drawDebugBoxes(result.debug);
       }
+
       const gradingDebugToggle = document.getElementById('grading-debug-toggle');
       const panel = document.getElementById('grading-debug-panel');
       if (panel) {
@@ -392,19 +459,45 @@
           const lengthTotal = result.lengthTotal ?? 0;
           const baseScore = result.baseScore ?? 0;
           const finalScore = result.score ?? 0;
+          const penalty = result.penalty ?? 0;
           const ocrInfo = result.ocrText != null && result.ocrText !== ''
             ? String(result.ocrText)
-            : '(未実行または結果なし)';
+            : '(OCR not run or no result)';
           const perBoxLine = (result.perBox && result.perBox.length > 0)
-            ? '各枠: ' + result.perBox.map(function (b) { return b.score; }).join(', ') + '\n'
+            ? 'perBox: ' + result.perBox.map(function (b) { return b.score; }).join(', ') + '\n'
             : '';
+          const perBoxOcrLine = (result.ocrPerBox && result.ocrPerBox.length > 0)
+            ? 'perBoxOCR: ' + result.ocrPerBox.map(function (b, i) {
+              const l = b && b.letter ? b.letter : '-';
+              const c = b && typeof b.confidence === 'number' ? b.confidence.toFixed(1) : '0.0';
+              const a = b && typeof b.alphaLength === 'number' ? b.alphaLength : 0;
+              return '#' + i + ':' + l + '(c=' + c + ',a=' + a + ')';
+            }).join(' ') + '\n'
+            : '';
+          const userReason = (result.reasonUserList && result.reasonUserList.length > 0)
+            ? result.reasonUserList.join(' / ')
+            : (result.userMessage || result.message || '(none)');
+          const devReason = (result.reasonDevList && result.reasonDevList.length > 0)
+            ? result.reasonDevList.join(' | ')
+            : (result.developerMessage || '(none)');
+          const ocrDecision = result.ocrDecision && result.ocrDecision.mode
+            ? result.ocrDecision.mode
+            : '-';
+          const ocrCap = result.ocrDecision && result.ocrDecision.cap != null
+            ? result.ocrDecision.cap
+            : '-';
           panel.textContent =
+            '[User] ' + userReason + '\n' +
+            '[Dev] ' + devReason + '\n' +
+            'message: ' + (result.message || '-') + '\n' +
             perBoxLine +
-            `inside: ${inside} / outside: ${outside} (rate: ${(outsideRate * 100).toFixed(1)}%)\n` +
-            `coverage: ${(coverage * 100).toFixed(1)}%\n` +
-            `length: 実測 ${lengthTotal.toFixed(1)} / 閾値 ${lengthGate.toFixed(1)}\n` +
-            `baseScore: ${baseScore} / finalScore: ${finalScore}\n` +
-            `OCR: ${ocrInfo}`;
+            perBoxOcrLine +
+            'inside: ' + inside + ' / outside: ' + outside + ' (rate: ' + (outsideRate * 100).toFixed(1) + '%)\n' +
+            'coverage: ' + (coverage * 100).toFixed(1) + '%\n' +
+            'length: total ' + lengthTotal.toFixed(1) + ' / gate ' + lengthGate.toFixed(1) + '\n' +
+            'baseScore: ' + baseScore + ' / penalty: ' + penalty + ' / finalScore: ' + finalScore + '\n' +
+            'OCR mode: ' + ocrDecision + ' / OCR cap: ' + ocrCap + '\n' +
+            'OCR: ' + ocrInfo;
           if (typeof Draw.drawClassificationOverlay === 'function') {
             Draw.drawClassificationOverlay(result.insidePixels, result.outsidePixels);
           }
@@ -412,7 +505,16 @@
           panel.textContent = '';
         }
       }
+
       updateProgressOnCheck(currentKana, result.score);
+      const saveSig = currentKana + '|' + difficulty + '|' + buildStrokeCheckSignature(strokesData);
+      const saveNow = Date.now();
+      if (saveSig === lastPracticeSaveSig && (saveNow - lastPracticeSaveAt) < 15000) {
+        return;
+      }
+      lastPracticeSaveSig = saveSig;
+      lastPracticeSaveAt = saveNow;
+
       const record = {
         timestamp: Date.now(),
         kana: currentKana,
@@ -434,7 +536,9 @@
       addRecord(record).then(() => {
         refreshHistoryPreviewIfVisible();
       }).catch(err => {
-        showError('practice-error', '履歴の保存に失敗しました: ' + (err.message || err));
+        lastPracticeSaveSig = '';
+        lastPracticeSaveAt = 0;
+        showError('practice-error', 'Failed to save history: ' + (err && err.message ? err.message : err));
       });
     }
 
@@ -443,16 +547,41 @@
     const hasTesseract = typeof Tesseract !== 'undefined' && Tesseract.recognize;
 
     if (multiBox && hasTesseract) {
-      vEl.textContent = '認識中...';
+      vEl.textContent = 'Recognizing...';
       vEl.className = 'verdict-display';
       const promises = boxes.map(function (_, i) {
         const canvas = Draw.getImageForOCRBox(i);
-        return canvas ? Tesseract.recognize(canvas, 'eng', { logger: function () {} }) : Promise.resolve(null);
+        const stats = getOcrCanvasStats(canvas);
+        logOcrTrace('start', { kind: 'multi', boxIndex: i, canvas: stats });
+        if (!canvas) {
+          logOcrTrace('skip', { kind: 'multi', boxIndex: i, reason: 'no-canvas' });
+          return Promise.resolve({ text: '', letter: '', confidence: 0, alphaLength: 0, source: 'none' });
+        }
+        return Tesseract.recognize(canvas, 'eng', { logger: function () {} })
+          .then(function (r) {
+            const info = extractOcrInfo(r);
+            logOcrTrace('done', {
+              kind: 'multi',
+              boxIndex: i,
+              letter: info.letter,
+              confidence: info.confidence,
+              alphaLength: info.alphaLength,
+              source: info.source
+            });
+            return info;
+          })
+          .catch(function (err) {
+            logOcrTrace('error', { kind: 'multi', boxIndex: i, message: String(err && err.message || err || 'ocr-failed') });
+            return { text: '', letter: '', confidence: 0, alphaLength: 0, source: 'none' };
+          });
       });
       Promise.all(promises)
-        .then(function (ocrResults) {
-          const ocrPerBox = ocrResults.map(function (r) {
-            return r ? extractOcrInfo(r) : { text: '', letter: '', confidence: 0 };
+        .then(function (ocrPerBox) {
+          logOcrTrace('grading-input', {
+            kind: 'multi',
+            ocrPerBox: ocrPerBox.map(function (o) {
+              return { letter: o.letter, confidence: o.confidence, alphaLength: o.alphaLength, source: o.source };
+            })
           });
           const result = Grading.grade(strokesData, templateInfo, passLine, {
             difficulty: difficulty,
@@ -469,30 +598,51 @@
 
     const ocrCanvas = typeof Draw.getImageForOCR === 'function' ? Draw.getImageForOCR() : null;
     if (ocrCanvas && hasTesseract) {
-      vEl.textContent = '認識中...';
+      vEl.textContent = 'Recognizing...';
       vEl.className = 'verdict-display';
+      logOcrTrace('start', { kind: 'single', canvas: getOcrCanvasStats(ocrCanvas) });
       Tesseract.recognize(ocrCanvas, 'eng', { logger: function () {} })
         .then(function (ocrResult) {
           const ocrInfo = extractOcrInfo(ocrResult);
+          logOcrTrace('done', {
+            kind: 'single',
+            letter: ocrInfo.letter,
+            confidence: ocrInfo.confidence,
+            alphaLength: ocrInfo.alphaLength,
+            source: ocrInfo.source
+          });
+          logOcrTrace('grading-input', {
+            kind: 'single',
+            letter: ocrInfo.letter,
+            confidence: ocrInfo.confidence,
+            alphaLength: ocrInfo.alphaLength,
+            source: ocrInfo.source
+          });
           const result = Grading.grade(strokesData, templateInfo, passLine, {
             difficulty: difficulty,
             ocrText: ocrInfo.text,
             ocrLetter: ocrInfo.letter,
-            ocrConfidence: ocrInfo.confidence
+            ocrConfidence: ocrInfo.confidence,
+            ocrAlphaLength: ocrInfo.alphaLength,
+            ocrSource: ocrInfo.source
           });
           applyResult(result);
         })
-        .catch(function () {
+        .catch(function (err) {
+          logOcrTrace('error', { kind: 'single', message: String(err && err.message || err || 'ocr-failed') });
           const result = Grading.grade(strokesData, templateInfo, passLine, { difficulty: difficulty });
           applyResult(result);
         });
       return;
     }
-    const result = Grading.grade(strokesData, templateInfo, passLine, { difficulty });
+
+    const result = Grading.grade(strokesData, templateInfo, passLine, { difficulty: difficulty });
     applyResult(result);
   }
 
   function doNext() {
+    if (practiceCheckInFlight) return;
+    practiceCheckSeq++;
     const list = getKanaByCategory(document.getElementById('char-category')?.value || 'basic');
     const idx = list.findIndex(d => d.kana === currentKana);
     const next = list[(idx + 1) % list.length];
@@ -627,3 +777,5 @@
     getCurrentKana
   };
 })(typeof window !== 'undefined' ? window : this);
+
+

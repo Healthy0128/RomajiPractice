@@ -1,0 +1,50 @@
+{
+  "steps": [
+    {
+      "step": "home_loaded"
+    },
+    {
+      "step": "practice_open"
+    },
+    {
+      "step": "practice_check_empty",
+      "verdict": "認識中..."
+    },
+    {
+      "step": "practice_check_tap",
+      "verdict": "認識中..."
+    },
+    {
+      "step": "practice_check_stroke",
+      "verdict": "A lot of stroke is outside the guide zone (9 点)"
+    },
+    {
+      "step": "practice_multibox_like",
+      "verdict": "Because one box is 0, total score is forced to 0 (0 点)"
+    },
+    {
+      "step": "practice_click_export_json"
+    },
+    {
+      "step": "practice_click_export_studyxp"
+    },
+    {
+      "step": "test_check_empty",
+      "verdict": "Because one box is 0, total score is forced to 0 (0 点) / OCR: -, -"
+    },
+    {
+      "step": "test_check_stroke",
+      "verdict": "Because one box is 0, total score is forced to 0 (0 点) / OCR: e, -"
+    },
+    {
+      "step": "test_next_clicked"
+    },
+    {
+      "step": "history_detail_open",
+      "detailText": "こ → ko\n\n日時: 2026/3/10 4:31:01\n\n難易度: trace | スコア: 0 | もう一回\n\n許容ゾーン: 20px | 補正: 0.5 | 合格ライン: 70%"
+    },
+    {
+      "step": "history_replay_clicked"
+    }
+  ]
+}

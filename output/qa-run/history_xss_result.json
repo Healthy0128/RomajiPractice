@@ -1,0 +1,5 @@
+{
+  "probeExists": 1,
+  "probeFired": "1",
+  "detailHtml": "\n        <p>�� → a</p>\n        <p>日時: 2026/3/10 4:34:19</p>\n        <p>難易度: <img id=\"xss-probe\" src=\"x\" onerror=\"this.setAttribute('data-fired','1')\" data-fired=\"1\"> | スコア: 80 | 合格</p>\n        <p>許容ゾーン: 20px | 補正: 0.5 | 合格ライン: 70%</p>\n      "
+}

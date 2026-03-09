@@ -1,0 +1,1020 @@
+    1: /**
+    2:  * grading.js - 謗｡轤ｹ繧｢繝ｫ繧ｴ繝ｪ繧ｺ繝・医ワ繧､繝悶Μ繝・ラ譁ｹ蠑擾ｼ・ * 謇区悽縺ｯ fillText + 螟ｪ邱夲ｼ・oneWidth・峨〒繝槭せ繧ｯ逕滓・
+    3:  * 譛菴守ｷ夐聞繧ｲ繝ｼ繝医・繧ｫ繝舌Ξ繝・ず繝ｻoutside貂帷せ繧貞渚譏
+    4:  */
+    5: 
+    6: (function (global) {
+    7:   'use strict';
+    8: 
+    9:   // --- 謗｡轤ｹ繝代Λ繝｡繝ｼ繧ｿ・・EADME縺ｫ險倩ｼ会ｼ・---
+   10:   const MIN_STROKE_LENGTH_RATIO = 0.25;  // ・亥ｾ捺擂蛟､・峨ユ繝ｳ繝励Ξ逕ｱ譚･縺ｮ邱夐聞謗ｨ螳壹→邨・∩蜷医ｏ縺帙※菴ｿ逕ｨ
+   11:   const COVERAGE_GRID_SIZE = 12;          // 繧ｫ繝舌Ξ繝・ず逕ｨ繧ｰ繝ｪ繝・ラ 12x12
+   12:   const COVERAGE_WEIGHT = 0.3;            // score = baseScore * (0.7 + 0.3*coverage)
+   13:   const OUTSIDE_PENALTY = 25;             // 貂帷せ = outsideRate * OUTSIDE_PENALTY
+   14:   const PENALTY = 2.0;                    // 繧ｾ繝ｼ繝ｳ螟悶・繝翫Ν繝・ぅ・・nside邇・ｨ育ｮ礼畑・・  const W1 = 0.45;                        // scoreMask 縺ｮ驥阪∩・・00縺檎ｰ｡蜊倥↓蜃ｺ縺ｪ縺・ｈ縺・ｪｿ謨ｴ・・  const W2 = 0.35;                        // scoreShape 縺ｮ驥阪∩
+   15:   const MIN_POINTS = 5;
+   16:   const EDGE_MARGIN = 8;
+   17:   const MAX_SAMPLE_POINTS = 300;
+   18:   // --- 2026-03 grading precision tweaks (small, compatible changes) ---
+   19:   const TINY_STROKE_RATIO = 0.015;          // ignore accidental taps / very short flicks in scoring
+   20:   const SOFT_ALIGN_CENTER_BLEND = 0.65;     // light center correction for all difficulties
+   21:   const SOFT_ALIGN_SCALE_MIN = 0.88;        // absorb small size differences
+   22:   const SOFT_ALIGN_SCALE_MAX = 1.15;
+   23:   const OCR_STRONG_GATE = 82;               // strong OCR cap only when confidence is high
+   24:   const OCR_SOFT_GATE = 68;                 // low confidence OCR is treated as hint only
+   25: 
+   26: 
+   27:   // Fade / Blind 逕ｨ縺ｮ菴咲ｽｮ繧ｲ繝ｼ繝医・豁｣隕丞喧繝代Λ繝｡繝ｼ繧ｿ
+   28:   const CENTER_GATE_X_RATIO = 0.35; // 縺薙ｌ莉･荳贋ｸｭ蠢・′髮｢繧後※縺・ｌ縺ｰ菴咲ｽｮ逧・↓ NG
+   29:   const CENTER_GATE_Y_RATIO = 0.25;
+   30:   const CENTER_SOFT_X_RATIO = 0.12; // 縺薙・遽・峇繧定ｶ・∴縺溷・縺縺第ｸ帷せ
+   31:   const CENTER_SOFT_Y_RATIO = 0.10;
+   32: 
+   33:   /** 蛻･縺ｮ譁・ｭ励→縺励※隱ｭ縺ｾ繧後◆繧・0轤ｹ繧定ｶ・∴繧峨ｌ縺ｪ縺・ｼ壽ｷｷ蜷後＠繧・☆縺・枚蟄励・蟇ｾ蠢懆｡ｨ */
+   34:   const CONFUSABLES = {
+   35:     a: ['o', 'e', 'd', 'q', 'c'], b: ['h', 'd', 'p', 'r'], c: ['o', 'e', 'a', 'q'],
+   36:     d: ['b', 'a', 'q', 'p'], e: ['a', 'c', 'o'], f: ['t', 'l'], g: ['q', 'y', 'j'],
+   37:     h: ['b', 'n', 'k'], i: ['l', 'j', 't'], j: ['i', 'g', 'y'], k: ['h', 'r'],
+   38:     l: ['i', 't', 'h'], m: ['n', 'w'], n: ['m', 'h', 'u', 'r'], o: ['a', 'c', 'e', 'q', 'd'],
+   39:     p: ['b', 'd', 'r'], q: ['d', 'g', 'a', 'o'], r: ['n', 'k', 'p'], s: ['z', 'c'],
+   40:     t: ['f', 'l', 'i'], u: ['n', 'v', 'w'], v: ['u', 'w'], w: ['m', 'v', 'u'],
+   41:     x: ['k', 'y'], y: ['g', 'v', 'j'], z: ['s', 'r']
+   42:   };
+   43:   const DEFAULT_ALTERNATIVES = 'a,c,e,i,o,u,n,m,h,r'.split(',');
+   44: 
+   45:   function getConfusableLetters(correctLetter) {
+   46:     const c = (correctLetter || '').toLowerCase();
+   47:     if (CONFUSABLES[c]) return CONFUSABLES[c];
+   48:     return DEFAULT_ALTERNATIVES.filter(function (ch) { return ch !== c; });
+   49:   }
+   50: 
+   51:   /** 謖・ｮ壹＠縺・譁・ｭ励・繝槭せ繧ｯ縺ｫ蟇ｾ縺励※縲√Θ繝ｼ繧ｶ繝ｼ轤ｹ縺ｮ縺・■ inside 縺ｮ蛟区焚繧定ｿ斐☆ */
+   52:   function countInsideForLetter(points, templateInfo, letter, maskW, maskH) {
+   53:     const altInfo = Object.assign({}, templateInfo, { romaji: letter, letter: letter });
+   54:     const r = computeMaskScore(points, altInfo, maskW, maskH);
+   55:     return r.inside;
+   56:   }
+   57: 
+   58:   /**
+   59:    * 繝｡繧､繝ｳ縺ｮ謗｡轤ｹ髢｢謨ｰ縲・   * 蜊倅ｸ譁・ｭ・ 蠕捺擂縺ｩ縺翫ｊ canvas 蜈ｨ菴薙〒謗｡轤ｹ
+   60:    * 隍・焚譁・ｭ・ templateInfo.boxes / templateInfo.letters 縺後≠繧後・縲∵棧縺斐→縺ｫ1譁・ｭ励★縺､謗｡轤ｹ縺怜ｹｳ蝮・せ繧ｳ繧｢繧定ｿ斐☆
+   61:    *
+   62:    * @param {Array} pointsOrStrokes - strokes[i].points 縺ｪ縺ｩ
+   63:    * @param {Object} templateInfo
+   64:    * @param {number} passLine
+   65:    * @param {string|{difficulty?: string}} [options] - 髮｣譏灘ｺｦ・・race/ghost/fade/blind・・   */
+   66:   function grade(pointsOrStrokes, templateInfo, passLine, options) {
+   67:     // 隍・焚譫・郁､・焚譁・ｭ暦ｼ峨Δ繝ｼ繝峨°縺ｩ縺・°繧貞愛螳・    if (templateInfo && Array.isArray(templateInfo.boxes) && templateInfo.boxes.length > 1) {
+   68:       return gradeMultiBoxes(pointsOrStrokes, templateInfo, passLine, options);
+   69:     }
+   70: 
+   71:     return gradeSingle(pointsOrStrokes, templateInfo, passLine, options);
+   72:   }
+   73: 
+   74:   /**
+   75:    * 蜊倅ｸ譫・・譁・ｭ暦ｼ臥畑縺ｮ蠕捺擂繝ｭ繧ｸ繝・け
+   76:    */
+   77:   function gradeSingle(pointsOrStrokes, templateInfo, passLine, options) {
+   78:     const difficulty = typeof options === 'string'
+   79:       ? options
+   80:       : (options && options.difficulty) || 'trace';
+   81:     const normalizeShape = difficulty === 'fade' || difficulty === 'blind';
+   82: 
+   83:     const result = {
+   84:       score: 0,
+   85:       verdict: 'red',
+   86:       inside: 0,
+   87:       outside: 0,
+   88:       outsidePixels: [],
+   89:       message: '',
+   90:       debug: null,
+   91:       userMessage: '',
+   92:       developerMessage: '',
+   93:       reasonUserList: [],
+   94:       reasonDevList: []
+   95:     };
+   96: 
+   97:     const userReasons = [];
+   98:     const devReasons = [];
+   99:     function addUserReason(msg) {
+  100:       if (!msg) return;
+  101:       if (userReasons.indexOf(msg) < 0) userReasons.push(msg);
+  102:     }
+  103:     function addDevReason(msg) {
+  104:       if (!msg) return;
+  105:       if (devReasons.indexOf(msg) < 0) devReasons.push(msg);
+  106:     }
+  107: 
+  108:     if (!templateInfo || !templateInfo.romaji || templateInfo.romaji.length === 0) {
+  109:       result.message = '\u898b\u672c\u304c\u3042\u308a\u307e\u305b\u3093';
+  110:       addUserReason(result.message);
+  111:       finalizeReasonFields(result, userReasons, devReasons);
+  112:       return result;
+  113:     }
+  114: 
+  115:     const allStrokes = toStrokesArray(pointsOrStrokes);
+  116:     const maskW = Math.round(templateInfo.width || 400);
+  117:     const maskH = Math.round(templateInfo.height || 300);
+  118:     const canvasMinDim = Math.min(maskW, maskH);
+  119: 
+  120:     // 2026-03: ignore accidental micro-strokes so taps do not over-penalize
+  121:     const tinyStrokeLength = Math.max(2, canvasMinDim * TINY_STROKE_RATIO);
+  122:     const filtered = filterTinyStrokes(allStrokes, tinyStrokeLength);
+  123:     const scoringStrokes = filtered.strokes.length > 0 ? filtered.strokes : allStrokes;
+  124:     const points = flattenPoints(scoringStrokes);
+  125:     const rawStrokeLength = computeTotalStrokeLength(allStrokes);
+  126:     const totalStrokeLength = computeTotalStrokeLength(scoringStrokes);
+  127: 
+  128:     if (filtered.ignoredCount > 0) {
+  129:       addDevReason('Ignored tiny strokes: ' + filtered.ignoredCount);
+  130:     }
+  131: 
+  132:     const maskForLen = buildTemplateMask(templateInfo, maskW, maskH);
+  133:     let inkCount = 0;
+  134:     for (let i = 0; i < maskForLen.data.length; i += 4) {
+  135:       if (maskForLen.data[i] > 128) inkCount++;
+  136:     }
+  137:     const expectedLen = Math.sqrt(inkCount);
+  138:     const baseMin = canvasMinDim * 0.05;
+  139:     const baseMax = canvasMinDim * 0.30;
+  140:     let minStrokeLength = expectedLen * 0.35;
+  141:     minStrokeLength = Math.max(baseMin, Math.min(baseMax, minStrokeLength));
+  142:     const fallbackMin = canvasMinDim * MIN_STROKE_LENGTH_RATIO * 0.3;
+  143:     minStrokeLength = Math.max(minStrokeLength, fallbackMin);
+  144: 
+  145:     if (templateInfo.letter === 'i' || templateInfo.letter === 'j') {
+  146:       const h = canvasMinDim || 1;
+  147:       const softMin = h * 0.10;
+  148:       minStrokeLength = Math.max(softMin, minStrokeLength * 0.5);
+  149:     }
+  150: 
+  151:     if (totalStrokeLength < minStrokeLength) {
+  152:       result.verdict = 'red';
+  153:       result.message = '\u7dda\u304c\u77ed\u3059\u304e\u307e\u3059';
+  154:       result.score = 0;
+  155:       addUserReason('Write a bit longer stroke');
+  156:       addDevReason('length ' + totalStrokeLength.toFixed(1) + ' < gate ' + minStrokeLength.toFixed(1));
+  157:       finalizeReasonFields(result, userReasons, devReasons);
+  158:       return result;
+  159:     }
+  160: 
+  161:     const sampled = resamplePoints(points, 2, MAX_SAMPLE_POINTS);
+  162:     if (sampled.length < MIN_POINTS) {
+  163:       result.verdict = 'red';
+  164:       result.message = '\u70b9\u304c\u5c11\u306a\u3059\u304e\u307e\u3059';
+  165:       result.score = 0;
+  166:       addUserReason('The stroke is too small to grade');
+  167:       addDevReason('sampled points=' + sampled.length);
+  168:       finalizeReasonFields(result, userReasons, devReasons);
+  169:       return result;
+  170:     }
+  171: 
+  172:     const edgeCount = sampled.filter(function (p) {
+  173:       return p.x < EDGE_MARGIN || p.x > maskW - EDGE_MARGIN || p.y < EDGE_MARGIN || p.y > maskH - EDGE_MARGIN;
+  174:     }).length;
+  175:     if (edgeCount > sampled.length * 0.5) {
+  176:       result.verdict = 'red';
+  177:       result.message = '\u7aef\u306e\u8aa4\u30bf\u30c3\u30c1\u304c\u591a\u3044\u3067\u3059';
+  178:       result.score = 0;
+  179:       addUserReason('Please write inside the canvas area');
+  180:       addDevReason('edge points ratio=' + (edgeCount / sampled.length).toFixed(3));
+  181:       finalizeReasonFields(result, userReasons, devReasons);
+  182:       return result;
+  183:     }
+  184: 
+  185:     const maskDataForBBox = buildTemplateMask(templateInfo, maskW, maskH);
+  186:     const templateBBox = computeBBoxFromMask(maskDataForBBox, maskW, maskH);
+  187:     const userBBox = computeBBoxFromPoints(sampled);
+  188: 
+  189:     let evalPoints = sampled;
+  190:     let normalizedBBox = null;
+  191:     let alignInfo = null;
+  192: 
+  193:     if (userBBox && templateBBox) {
+  194:       const dxRatio = Math.abs(userBBox.cx - templateBBox.cx) / maskW;
+  195:       const dyRatio = Math.abs(userBBox.cy - templateBBox.cy) / maskH;
+  196: 
+  197:       if (normalizeShape && (dxRatio > CENTER_GATE_X_RATIO || dyRatio > CENTER_GATE_Y_RATIO)) {
+  198:         result.verdict = 'red';
+  199:         result.message = '\u4f4d\u7f6e\u304c\u5927\u304d\u304f\u305a\u308c\u3066\u3044\u307e\u3059';
+  200:         result.score = 0;
+  201:         addUserReason('Try writing closer to the guide');
+  202:         addDevReason('center gate fail dx=' + dxRatio.toFixed(3) + ', dy=' + dyRatio.toFixed(3));
+  203:         result.debug = { userBBox: userBBox, templateBBox: templateBBox, normalizedBBox: null };
+  204:         finalizeReasonFields(result, userReasons, devReasons);
+  205:         return result;
+  206:       }
+  207: 
+  208:       // 2026-03: light alignment even in non-fade modes to absorb small size/position differences
+  209:       const alignStrength = normalizeShape ? 0.9 : SOFT_ALIGN_CENTER_BLEND;
+  210:       const scaleMin = normalizeShape ? 0.8 : SOFT_ALIGN_SCALE_MIN;
+  211:       const scaleMax = normalizeShape ? 1.25 : SOFT_ALIGN_SCALE_MAX;
+  212:       const softAligned = softAlignPointsToTemplateBBox(sampled, userBBox, templateBBox, alignStrength, scaleMin, scaleMax);
+  213:       evalPoints = softAligned.points;
+  214:       alignInfo = softAligned.info;
+  215:       normalizedBBox = computeBBoxFromPoints(evalPoints);
+  216:       addDevReason('soft align center=' + alignStrength.toFixed(2) + ', scale=' + softAligned.info.scale.toFixed(3));
+  217:     }
+  218: 
+  219:     const maskResult = computeMaskScore(evalPoints, templateInfo, maskW, maskH);
+  220:     result.inside = maskResult.inside;
+  221:     result.outside = maskResult.outside;
+  222:     result.outsidePixels = maskResult.outsidePixels;
+  223:     result.insidePixels = maskResult.insidePixels;
+  224: 
+  225:     const total = maskResult.inside + maskResult.outside;
+  226:     const outsideRate = total > 0 ? maskResult.outside / total : 0;
+  227:     const insideRate = total > 0 ? maskResult.inside / total : 0;
+  228: 
+  229:     const coverage = computeCoverage(evalPoints, templateInfo, maskW, maskH);
+  230:     const shapeScore = computeShapeScore(evalPoints, templateInfo);
+  231:     const distributionScore = computeDistributionScore(evalPoints, templateInfo);
+  232: 
+  233:     let baseScore = insideRate * 100;
+  234:     const coverageFactor = 0.86 + 0.14 * coverage;
+  235:     baseScore = baseScore * coverageFactor;
+  236:     baseScore = (baseScore * 0.78) + (shapeScore * 0.14) + (distributionScore * 0.08);
+  237: 
+  238:     let rescueBonus = 0;
+  239:     if (coverage < 0.55 && shapeScore >= 80 && insideRate >= 0.72) {
+  240:       rescueBonus = Math.min(8, (shapeScore - 80) * 0.3 + (insideRate - 0.72) * 20);
+  241:       baseScore += rescueBonus;
+  242:       addDevReason('low-coverage rescue +' + rescueBonus.toFixed(1));
+  243:     }
+  244: 
+  245:     if (normalizeShape && userBBox && templateBBox) {
+  246:       const dxRatio = Math.abs(userBBox.cx - templateBBox.cx) / maskW;
+  247:       const dyRatio = Math.abs(userBBox.cy - templateBBox.cy) / maskH;
+  248:       const nx = Math.max(0, dxRatio - CENTER_SOFT_X_RATIO) / Math.max(1e-6, CENTER_GATE_X_RATIO - CENTER_SOFT_X_RATIO);
+  249:       const ny = Math.max(0, dyRatio - CENTER_SOFT_Y_RATIO) / Math.max(1e-6, CENTER_GATE_Y_RATIO - CENTER_SOFT_Y_RATIO);
+  250:       const centerPenalty = nx * 8 + ny * 16;
+  251:       baseScore = Math.max(0, baseScore - centerPenalty);
+  252:       addDevReason('center penalty=' + centerPenalty.toFixed(2));
+  253:     }
+  254: 
+  255:     const penalty = Math.min(12, Math.max(0, outsideRate * 20));
+  256:     let finalScore = Math.max(0, Math.min(100, baseScore - penalty));
+  257: 
+  258:     // 2026-03: OCR affects score strongly only with high confidence
+  259:     let ocrDecision = { mode: 'none', expected: '', detected: '', confidence: 0, cap: null };
+  260:     if (finalScore > 49 && options && (options.ocrLetter !== undefined || options.ocrText !== undefined)) {
+  261:       const expectedLetter = (templateInfo.letter || (templateInfo.romaji && templateInfo.romaji[0]) || '').toLowerCase();
+  262:       if (expectedLetter && /^[a-z]$/.test(expectedLetter)) {
+  263:         const parsed = parseOcrSingle(options);
+  264:         if (parsed.letter && parsed.letter !== expectedLetter) {
+  265:           ocrDecision = applyOcrPenalty(finalScore, parsed.letter, expectedLetter, parsed.confidence);
+  266:           finalScore = ocrDecision.score;
+  267:           if (ocrDecision.mode === 'strong') {
+  268:             result.message = '\u5225\u306e\u6587\u5b57\u306b\u8aad\u307e\u308c\u307e\u3057\u305f';
+  269:             addUserReason('OCR strongly suggests a different character');
+  270:           } else if (ocrDecision.mode === 'soft') {
+  271:             addDevReason('OCR soft mismatch cap=' + ocrDecision.cap + ' conf=' + parsed.confidence.toFixed(1));
+  272:           } else {
+  273:             addDevReason('OCR mismatch ignored (low confidence) conf=' + parsed.confidence.toFixed(1));
+  274:           }
+  275:         }
+  276:       }
+  277:     }
+  278: 
+  279:     result.score = Math.round(finalScore);
+  280: 
+  281:     if (options && typeof options === 'object') {
+  282:       if (options.ocrText !== undefined) result.ocrText = options.ocrText;
+  283:       if (options.ocrLetter !== undefined) result.ocrLetter = options.ocrLetter;
+  284:       if (options.ocrConfidence !== undefined) result.ocrConfidence = options.ocrConfidence;
+  285:     }
+  286: 
+  287:     result.outsideRate = outsideRate;
+  288:     result.coverage = coverage;
+  289:     result.baseScore = Math.round(baseScore);
+  290:     result.lengthTotal = totalStrokeLength;
+  291:     result.lengthRaw = rawStrokeLength;
+  292:     result.lengthGate = minStrokeLength;
+  293:     result.penalty = penalty;
+  294:     result.shapeScore = Math.round(shapeScore);
+  295:     result.distributionScore = Math.round(distributionScore);
+  296:     result.rescueBonus = Number(rescueBonus.toFixed(2));
+  297:     result.ignoredTinyStrokes = filtered.ignoredCount;
+  298:     result.ocrDecision = ocrDecision;
+  299: 
+  300:     const keptMessage = result.message === '\u5225\u306e\u6587\u5b57\u306b\u8aad\u307e\u308c\u307e\u3057\u305f';
+  301:     if (result.score >= passLine) {
+  302:       result.verdict = 'green';
+  303:       if (!keptMessage) result.message = '\u5408\u683c';
+  304:       addUserReason('Good overall shape match');
+  305:     } else if (result.score >= passLine - 10) {
+  306:       result.verdict = 'yellow';
+  307:       if (!keptMessage) result.message = '\u304a\u3057\u3044';
+  308:       addUserReason('Small shape or position adjustment can pass');
+  309:     } else {
+  310:       result.verdict = 'red';
+  311:       if (!keptMessage) {
+  312:         if (totalStrokeLength < minStrokeLength * 1.05) {
+  313:           result.message = '\u7dda\u304c\u77ed\u3059\u304e\u307e\u3059';
+  314:           addUserReason('Write a slightly longer, clearer stroke');
+  315:         } else if (outsideRate > 0.35) {
+  316:           result.message = '\u7dda\u304c\u306f\u307f\u51fa\u3057\u3066\u3044\u307e\u3059';
+  317:           addUserReason('A lot of stroke is outside the guide zone');
+  318:         } else if (coverage < 0.5) {
+  319:           result.message = '\u898b\u672c\u306e\u7dda\u3092\u3082\u3046\u5c11\u3057\u306a\u305e\u3063\u3066\u304f\u3060\u3055\u3044';
+  320:           addUserReason('Coverage is low; follow more of the template path');
+  321:         } else {
+  322:           result.message = '\u3082\u3046\u4e00\u56de';
+  323:           addUserReason('Balance of the shape needs adjustment');
+  324:         }
+  325:       }
+  326:     }
+  327: 
+  328:     addDevReason('insideRate=' + insideRate.toFixed(3) + ', outsideRate=' + outsideRate.toFixed(3) + ', coverage=' + coverage.toFixed(3));
+  329:     addDevReason('shape=' + shapeScore.toFixed(1) + ', dist=' + distributionScore.toFixed(1) + ', penalty=' + penalty.toFixed(2));
+  330: 
+  331:     result.debug = {
+  332:       userBBox: userBBox,
+  333:       templateBBox: templateBBox,
+  334:       normalizedBBox: normalizedBBox,
+  335:       alignInfo: alignInfo,
+  336:       scoreBreakdown: {
+  337:         insideRate: insideRate,
+  338:         outsideRate: outsideRate,
+  339:         coverage: coverage,
+  340:         shapeScore: shapeScore,
+  341:         distributionScore: distributionScore,
+  342:         rescueBonus: rescueBonus,
+  343:         penalty: penalty,
+  344:         finalScore: finalScore
+  345:       }
+  346:     };
+  347: 
+  348:     finalizeReasonFields(result, userReasons, devReasons);
+  349:     return result;
+  350:   }
+  351: 
+  352:   function finalizeReasonFields(result, userReasons, devReasons) {
+  353:     const userList = Array.isArray(userReasons) ? userReasons.slice(0, 6) : [];
+  354:     const devList = Array.isArray(devReasons) ? devReasons.slice(0, 12) : [];
+  355:     result.reasonUserList = userList;
+  356:     result.reasonDevList = devList;
+  357:     result.userMessage = userList.length > 0 ? userList[0] : (result.message || '');
+  358:     result.developerMessage = devList.join(' | ');
+  359:   }
+  360: 
+  361:   function filterTinyStrokes(strokes, tinyLength) {
+  362:     const kept = [];
+  363:     let ignoredCount = 0;
+  364:     (strokes || []).forEach(function (stroke) {
+  365:       const pts = (stroke && stroke.points) ? stroke.points : [];
+  366:       if (!pts || pts.length <= 1) {
+  367:         ignoredCount++;
+  368:         return;
+  369:       }
+  370:       const len = computeTotalStrokeLength([{ points: pts }]);
+  371:       const isTiny = len < tinyLength && pts.length <= 4;
+  372:       if (isTiny) {
+  373:         ignoredCount++;
+  374:         return;
+  375:       }
+  376:       kept.push(stroke);
+  377:     });
+  378:     return { strokes: kept, ignoredCount: ignoredCount };
+  379:   }
+  380: 
+  381:   function softAlignPointsToTemplateBBox(points, userBBox, templateBBox, centerBlend, scaleMin, scaleMax) {
+  382:     if (!points || !userBBox || !templateBBox) {
+  383:       return { points: points || [], info: { scale: 1, shiftX: 0, shiftY: 0 } };
+  384:     }
+  385: 
+  386:     const areaU = Math.max(1, userBBox.width * userBBox.height);
+  387:     const areaT = Math.max(1, templateBBox.width * templateBBox.height);
+  388:     const rawScale = Math.sqrt(areaT / areaU);
+  389:     const scale = Math.max(scaleMin, Math.min(scaleMax, rawScale));
+  390:     const shiftX = (templateBBox.cx - userBBox.cx) * centerBlend;
+  391:     const shiftY = (templateBBox.cy - userBBox.cy) * centerBlend;
+  392: 
+  393:     const aligned = points.map(function (p) {
+  394:       return {
+  395:         x: (p.x - userBBox.cx) * scale + userBBox.cx + shiftX,
+  396:         y: (p.y - userBBox.cy) * scale + userBBox.cy + shiftY
+  397:       };
+  398:     });
+  399: 
+  400:     return {
+  401:       points: aligned,
+  402:       info: {
+  403:         scale: scale,
+  404:         rawScale: rawScale,
+  405:         shiftX: shiftX,
+  406:         shiftY: shiftY,
+  407:         centerBlend: centerBlend
+  408:       }
+  409:     };
+  410:   }
+  411: 
+  412:   function parseOcrSingle(options) {
+  413:     let letter = '';
+  414:     let confidence = 0;
+  415:     if (options && options.ocrLetter) {
+  416:       const l = String(options.ocrLetter).toLowerCase();
+  417:       if (/^[a-z]$/.test(l)) {
+  418:         letter = l;
+  419:         if (typeof options.ocrConfidence === 'number' && isFinite(options.ocrConfidence)) {
+  420:           confidence = options.ocrConfidence;
+  421:         }
+  422:       }
+  423:     }
+  424:     if (!letter && options && options.ocrText !== undefined) {
+  425:       const raw = String(options.ocrText || '').trim().toLowerCase();
+  426:       const lettersOnly = raw.replace(/[^a-z]/g, '');
+  427:       if (lettersOnly.length === 1) letter = lettersOnly[0];
+  428:     }
+  429:     return { letter: letter, confidence: confidence };
+  430:   }
+  431: 
+  432:   function applyOcrPenalty(currentScore, detected, expected, confidence) {
+  433:     if (!detected || !expected || detected === expected) {
+  434:       return { mode: 'none', score: currentScore, expected: expected, detected: detected, confidence: confidence || 0, cap: null };
+  435:     }
+  436: 
+  437:     const conf = (typeof confidence === 'number' && isFinite(confidence)) ? confidence : 0;
+  438:     if (conf >= OCR_STRONG_GATE) {
+  439:       return { mode: 'strong', score: Math.min(currentScore, 49), expected: expected, detected: detected, confidence: conf, cap: 49 };
+  440:     }
+  441:     if (conf >= OCR_SOFT_GATE) {
+  442:       return { mode: 'soft', score: Math.min(currentScore, 69), expected: expected, detected: detected, confidence: conf, cap: 69 };
+  443:     }
+  444:     return { mode: 'none', score: currentScore, expected: expected, detected: detected, confidence: conf, cap: null };
+  445:   }
+  446: 
+  447:   function computeDistributionScore(userPoints, templateInfo) {
+  448:     const templatePoints = sampleTemplatePointsFromMask(templateInfo);
+  449:     if (!templatePoints || templatePoints.length < 8 || !userPoints || userPoints.length < 8) return 50;
+  450: 
+  451:     const userStat = computePointDistributionStats(userPoints);
+  452:     const templateStat = computePointDistributionStats(templatePoints);
+  453:     if (!userStat || !templateStat) return 50;
+  454: 
+  455:     const centerDist = Math.hypot(userStat.cx - templateStat.cx, userStat.cy - templateStat.cy);
+  456:     const spreadDist = Math.abs(userStat.sx - templateStat.sx) + Math.abs(userStat.sy - templateStat.sy);
+  457:     const aspectDiff = Math.abs(Math.log((userStat.aspect + 1e-6) / (templateStat.aspect + 1e-6)));
+  458: 
+  459:     const score = 100 - (centerDist * 160) - (spreadDist * 220) - (aspectDiff * 35);
+  460:     return Math.max(0, Math.min(100, score));
+  461:   }
+  462: 
+  463:   function computePointDistributionStats(points) {
+  464:     const bbox = computeBBoxFromPoints(points);
+  465:     if (!bbox) return null;
+  466: 
+  467:     const w = Math.max(1e-6, bbox.width);
+  468:     const h = Math.max(1e-6, bbox.height);
+  469:     let sx = 0;
+  470:     let sy = 0;
+  471:     let sxx = 0;
+  472:     let syy = 0;
+  473: 
+  474:     for (let i = 0; i < points.length; i++) {
+  475:       const nx = (points[i].x - bbox.minX) / w;
+  476:       const ny = (points[i].y - bbox.minY) / h;
+  477:       sx += nx;
+  478:       sy += ny;
+  479:       sxx += nx * nx;
+  480:       syy += ny * ny;
+  481:     }
+  482: 
+  483:     const n = Math.max(1, points.length);
+  484:     const cx = sx / n;
+  485:     const cy = sy / n;
+  486:     const vx = Math.max(0, sxx / n - cx * cx);
+  487:     const vy = Math.max(0, syy / n - cy * cy);
+  488: 
+  489:     return {
+  490:       cx: cx,
+  491:       cy: cy,
+  492:       sx: Math.sqrt(vx),
+  493:       sy: Math.sqrt(vy),
+  494:       aspect: bbox.width / Math.max(1e-6, bbox.height)
+  495:     };
+  496:   }
+  497: 
+  498:   function flattenPoints(pointsOrStrokes) {
+  499:     if (!pointsOrStrokes || pointsOrStrokes.length === 0) return [];
+  500:     const first = pointsOrStrokes[0];
+  501:     if (typeof first === 'object' && first && Array.isArray(first.points)) {
+  502:       return pointsOrStrokes.reduce((acc, stroke) => acc.concat(stroke.points || []), []);
+  503:     }
+  504:     if (Array.isArray(first) && first.length > 0 && typeof first[0] === 'object' && first[0].x != null) {
+  505:       return pointsOrStrokes.reduce((acc, stroke) => acc.concat(stroke), []);
+  506:     }
+  507:     if (typeof first === 'object' && first && 'x' in first) {
+  508:       return pointsOrStrokes;
+  509:     }
+  510:     return [];
+  511:   }
+  512: 
+  513:   function toStrokesArray(pointsOrStrokes) {
+  514:     if (!pointsOrStrokes || pointsOrStrokes.length === 0) return [];
+  515:     const first = pointsOrStrokes[0];
+  516:     if (typeof first === 'object' && first && Array.isArray(first.points)) {
+  517:       return pointsOrStrokes;
+  518:     }
+  519:     if (Array.isArray(first) && first.length > 0 && typeof first[0] === 'object') {
+  520:       return pointsOrStrokes.map(pts => ({ points: pts }));
+  521:     }
+  522:     return [{ points: pointsOrStrokes }];
+  523:   }
+  524: 
+  525:   function computeTotalStrokeLength(strokes) {
+  526:     let len = 0;
+  527:     strokes.forEach(s => {
+  528:       const pts = s.points || s;
+  529:       for (let i = 1; i < pts.length; i++) {
+  530:         len += Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y);
+  531:       }
+  532:     });
+  533:     return len;
+  534:   }
+  535: 
+  536:   function computeBBoxFromPoints(points) {
+  537:     if (!points || points.length === 0) return null;
+  538:     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  539:     points.forEach(p => {
+  540:       if (p.x < minX) minX = p.x;
+  541:       if (p.x > maxX) maxX = p.x;
+  542:       if (p.y < minY) minY = p.y;
+  543:       if (p.y > maxY) maxY = p.y;
+  544:     });
+  545:     if (!isFinite(minX) || !isFinite(maxX) || !isFinite(minY) || !isFinite(maxY)) return null;
+  546:     const width = Math.max(1, maxX - minX);
+  547:     const height = Math.max(1, maxY - minY);
+  548:     return {
+  549:       minX,
+  550:       minY,
+  551:       maxX,
+  552:       maxY,
+  553:       width,
+  554:       height,
+  555:       cx: minX + width / 2,
+  556:       cy: minY + height / 2
+  557:     };
+  558:   }
+  559: 
+  560:   function computeBBoxFromMask(maskImageData, maskW, maskH) {
+  561:     const data = maskImageData.data;
+  562:     let minX = maskW, minY = maskH, maxX = -1, maxY = -1;
+  563:     for (let y = 0; y < maskH; y++) {
+  564:       for (let x = 0; x < maskW; x++) {
+  565:         const idx = (y * maskW + x) * 4;
+  566:         if (data[idx] > 128) {
+  567:           if (x < minX) minX = x;
+  568:           if (x > maxX) maxX = x;
+  569:           if (y < minY) minY = y;
+  570:           if (y > maxY) maxY = y;
+  571:         }
+  572:       }
+  573:     }
+  574:     if (maxX < minX || maxY < minY) {
+  575:       // 荳・ｸ繝槭せ繧ｯ縺檎ｩｺ縺ｪ繧峨く繝｣繝ｳ繝舌せ荳ｭ螟ｮ莉倩ｿ代ｒ莉ｮ縺ｮ譫縺ｨ縺吶ｋ
+  576:       const w = maskW * 0.4;
+  577:       const h = maskH * 0.4;
+  578:       const minXFallback = (maskW - w) / 2;
+  579:       const minYFallback = (maskH - h) / 2;
+  580:       return {
+  581:         minX: minXFallback,
+  582:         minY: minYFallback,
+  583:         maxX: minXFallback + w,
+  584:         maxY: minYFallback + h,
+  585:         width: w,
+  586:         height: h,
+  587:         cx: maskW / 2,
+  588:         cy: maskH / 2
+  589:       };
+  590:     }
+  591:     const width = Math.max(1, maxX - minX);
+  592:     const height = Math.max(1, maxY - minY);
+  593:     return {
+  594:       minX,
+  595:       minY,
+  596:       maxX,
+  597:       maxY,
+  598:       width,
+  599:       height,
+  600:       cx: minX + width / 2,
+  601:       cy: minY + height / 2
+  602:     };
+  603:   }
+  604: 
+  605:   function normalizePointsToTemplateBBox(points, userBBox, templateBBox) {
+  606:     if (!points || !userBBox || !templateBBox) return points;
+  607:     const scaleX = templateBBox.width / userBBox.width;
+  608:     const scaleY = templateBBox.height / userBBox.height;
+  609:     const s = Math.max(0.1, Math.min(5, Math.min(scaleX, scaleY) || 1));
+  610:     return points.map(p => ({
+  611:       x: (p.x - userBBox.cx) * s + templateBBox.cx,
+  612:       y: (p.y - userBBox.cy) * s + templateBBox.cy
+  613:     }));
+  614:   }
+  615: 
+  616:   /**
+  617:    * 謇区悽繝槭せ繧ｯ繧偵げ繝ｪ繝・ラ蛻・牡縺励∵焔譛ｬ縺悟ｭ伜惠縺吶ｋ繧ｻ繝ｫ縺ｮ縺・■繝ｦ繝ｼ繧ｶ繝ｼ邱壹′騾壹▲縺溘そ繝ｫ蜑ｲ蜷・   */
+  618:   function computeCoverage(userPoints, templateInfo, maskW, maskH) {
+  619:     const templateMask = buildTemplateMask(templateInfo, maskW, maskH);
+  620:     const cellW = maskW / COVERAGE_GRID_SIZE;
+  621:     const cellH = maskH / COVERAGE_GRID_SIZE;
+  622:     const templateCells = new Set();
+  623:     const userCells = new Set();
+  624:     const data = templateMask.data;
+  625: 
+  626:     for (let gy = 0; gy < COVERAGE_GRID_SIZE; gy++) {
+  627:       for (let gx = 0; gx < COVERAGE_GRID_SIZE; gx++) {
+  628:         const cx = Math.floor(gx * cellW);
+  629:         const cy = Math.floor(gy * cellH);
+  630:         const idx = (cy * maskW + cx) * 4;
+  631:         if (data[idx] > 128) templateCells.add(gy * COVERAGE_GRID_SIZE + gx);
+  632:       }
+  633:     }
+  634: 
+  635:     userPoints.forEach(p => {
+  636:       const gx = Math.min(COVERAGE_GRID_SIZE - 1, Math.floor(p.x / cellW));
+  637:       const gy = Math.min(COVERAGE_GRID_SIZE - 1, Math.floor(p.y / cellH));
+  638:       userCells.add(gy * COVERAGE_GRID_SIZE + gx);
+  639:     });
+  640: 
+  641:     let covered = 0;
+  642:     templateCells.forEach(cellId => {
+  643:       if (userCells.has(cellId)) covered++;
+  644:     });
+  645:     const totalTemplate = templateCells.size;
+  646:     return totalTemplate > 0 ? covered / totalTemplate : 0;
+  647:   }
+  648: 
+  649:   function drawMaskTemplate(mCtx, templateInfo, maskW, maskH) {
+  650:     const zoneWidth = templateInfo.zoneWidth || 20;
+  651:     const romaji = templateInfo.romaji || '';
+  652:     if (!romaji) return;
+  653:     mCtx.fillStyle = 'black';
+  654:     mCtx.fillRect(0, 0, maskW, maskH);
+  655:     mCtx.fillStyle = 'white';
+  656:     mCtx.strokeStyle = 'white';
+  657:     if (typeof Template !== 'undefined' && templateInfo.metrics && Template.drawTemplateRomaji) {
+  658:       Template.drawTemplateRomaji(mCtx, romaji, templateInfo.metrics, {
+  659:         fontSize: templateInfo.fontSize,
+  660:         font: templateInfo.font,
+  661:         zoneWidth,
+  662:         isStroke: true
+  663:       });
+  664:     } else {
+  665:       const font = templateInfo.font || '48px sans-serif';
+  666:       const textX = templateInfo.textX != null ? templateInfo.textX : (maskW / 2 - 20);
+  667:       const textY = templateInfo.textY != null ? templateInfo.textY : (maskH / 2 + 10);
+  668:       mCtx.font = font;
+  669:       mCtx.textBaseline = 'alphabetic';
+  670:       mCtx.lineWidth = zoneWidth;
+  671:       mCtx.lineJoin = 'round';
+  672:       mCtx.lineCap = 'round';
+  673:       mCtx.strokeText(romaji, textX, textY);
+  674:       mCtx.fillText(romaji, textX, textY);
+  675:     }
+  676:   }
+  677: 
+  678:   function buildTemplateMask(templateInfo, maskW, maskH) {
+  679:     const maskCanvas = document.createElement('canvas');
+  680:     maskCanvas.width = maskW;
+  681:     maskCanvas.height = maskH;
+  682:     const mCtx = maskCanvas.getContext('2d');
+  683:     drawMaskTemplate(mCtx, templateInfo, maskW, maskH);
+  684:     return mCtx.getImageData(0, 0, maskW, maskH);
+  685:   }
+  686: 
+  687:   function computeMaskScore(points, templateInfo, maskW, maskH) {
+  688:     const maskCanvas = document.createElement('canvas');
+  689:     maskCanvas.width = maskW;
+  690:     maskCanvas.height = maskH;
+  691:     const mCtx = maskCanvas.getContext('2d');
+  692:     drawMaskTemplate(mCtx, templateInfo, maskW, maskH);
+  693: 
+  694:     const maskData = mCtx.getImageData(0, 0, maskW, maskH);
+  695:     const maskBuf = maskData.data;
+  696: 
+  697:     let inside = 0;
+  698:     let outside = 0;
+  699:     const outsidePixels = [];
+  700:     const insidePixels = [];
+  701: 
+  702:     const strokeWidth = templateInfo.strokeWidth || 0;
+  703:     const toleranceRadius = strokeWidth > 0 ? Math.max(1, Math.round(strokeWidth * 0.6)) : 0;
+  704:     const tol2 = toleranceRadius * toleranceRadius;
+  705: 
+  706:     for (let i = 0; i < points.length; i++) {
+  707:       const x = Math.round(points[i].x);
+  708:       const y = Math.round(points[i].y);
+  709:       if (x < 0 || x >= maskW || y < 0 || y >= maskH) {
+  710:         outside++;
+  711:         outsidePixels.push({ x, y });
+  712:         continue;
+  713:       }
+  714:       let isInside = false;
+  715:       if (toleranceRadius <= 1) {
+  716:         const idx = (y * maskW + x) * 4;
+  717:         if (maskBuf[idx] > 128) isInside = true;
+  718:       } else {
+  719:         // 蜊雁ｾ・toleranceRadius 莉･蜀・↓謇区悽繝槭せ繧ｯ縺後≠繧後・ inside 縺ｨ縺ｿ縺ｪ縺・        for (let dy = -toleranceRadius; dy <= toleranceRadius && !isInside; dy++) {
+  720:           const ny = y + dy;
+  721:           if (ny < 0 || ny >= maskH) continue;
+  722:           for (let dx = -toleranceRadius; dx <= toleranceRadius; dx++) {
+  723:             const nx = x + dx;
+  724:             if (nx < 0 || nx >= maskW) continue;
+  725:             if (dx * dx + dy * dy > tol2) continue;
+  726:             const idx = (ny * maskW + nx) * 4;
+  727:             if (maskBuf[idx] > 128) {
+  728:               isInside = true;
+  729:               break;
+  730:             }
+  731:           }
+  732:         }
+  733:       }
+  734: 
+  735:       if (isInside) {
+  736:         inside++;
+  737:         insidePixels.push({ x, y });
+  738:       } else {
+  739:         outside++;
+  740:         outsidePixels.push({ x, y });
+  741:       }
+  742:     }
+  743:     return { inside, outside, outsidePixels, insidePixels };
+  744:   }
+  745: 
+  746:   function computeShapeScore(userPoints, templateInfo) {
+  747:     const templatePoints = sampleTemplatePointsFromMask(templateInfo);
+  748:     if (templatePoints.length === 0) return 50;
+  749: 
+  750:     const sampled = resamplePoints(userPoints, 3, MAX_SAMPLE_POINTS);
+  751:     let sumDist = 0;
+  752:     let count = 0;
+  753:     for (let i = 0; i < sampled.length; i++) {
+  754:       let minD = Infinity;
+  755:       for (let j = 0; j < templatePoints.length; j++) {
+  756:         const d = Math.hypot(sampled[i].x - templatePoints[j].x, sampled[i].y - templatePoints[j].y);
+  757:         minD = Math.min(minD, d);
+  758:       }
+  759:       sumDist += minD;
+  760:       count++;
+  761:     }
+  762:     const avgDist = count > 0 ? sumDist / count : 100;
+  763:     const zoneW = templateInfo.zoneWidth || 20;
+  764:     const score = Math.max(0, 100 - (avgDist / (zoneW * 2)) * 50);
+  765:     return Math.min(100, score);
+  766:   }
+  767: 
+  768:   function sampleTemplatePointsFromMask(templateInfo) {
+  769:     const maskW = Math.round(templateInfo.width || 400);
+  770:     const maskH = Math.round(templateInfo.height || 300);
+  771:     const maskCanvas = document.createElement('canvas');
+  772:     maskCanvas.width = maskW;
+  773:     maskCanvas.height = maskH;
+  774:     const mCtx = maskCanvas.getContext('2d');
+  775:     drawMaskTemplate(mCtx, templateInfo, maskW, maskH);
+  776: 
+  777:     const maskData = mCtx.getImageData(0, 0, maskW, maskH);
+  778:     const data = maskData.data;
+  779:     const pts = [];
+  780:     for (let y = 0; y < maskH; y++) {
+  781:       for (let x = 0; x < maskW; x++) {
+  782:         const idx = (y * maskW + x) * 4;
+  783:         if (data[idx] > 128) pts.push({ x, y });
+  784:       }
+  785:     }
+  786:     return resamplePoints(pts, 5, MAX_SAMPLE_POINTS);
+  787:   }
+  788: 
+  789:   function resamplePoints(points, minDist, maxPoints) {
+  790:     if (!points || points.length <= 1) return points || [];
+  791:     const result = [points[0]];
+  792:     let last = points[0];
+  793:     for (let i = 1; i < points.length && result.length < maxPoints; i++) {
+  794:       const d = Math.hypot(points[i].x - last.x, points[i].y - last.y);
+  795:       if (d >= minDist) {
+  796:         result.push(points[i]);
+  797:         last = points[i];
+  798:       }
+  799:     }
+  800:     return result;
+  801:   }
+  802: 
+  803:   /**
+  804:    * 隍・焚譫・郁､・焚譁・ｭ暦ｼ臥畑・嗾emplateInfo.boxes / templateInfo.letters 繧剃ｽｿ縺｣縺ｦ縲・   * 蜷・棧縺斐→縺ｫ gradeSingle 繧貞他縺ｳ蜃ｺ縺励√◎縺ｮ蟷ｳ蝮・せ繧ｳ繧｢繧定ｿ斐☆縲・   *
+  805:    * - 蜷・棧縺ｮ strokes 縺ｯ stroke.boxIndex 縺ｧ謖ｯ繧雁・縺・   * - 謗｡轤ｹ縺ｯ譫繝ｭ繝ｼ繧ｫ繝ｫ蠎ｧ讓咏ｳｻ・・ox.x, box.y 繧貞次轤ｹ縺ｫ蟷ｳ陦檎ｧｻ蜍包ｼ・   * - outsidePixels / insidePixels 縺ｯ蜀阪・繧ｰ繝ｭ繝ｼ繝舌Ν蠎ｧ讓吶↓謌ｻ縺励※蜷域・
+  806:    */
+  807:   function gradeMultiBoxes(pointsOrStrokes, templateInfo, passLine, options) {
+  808:     const difficulty = typeof options === 'string'
+  809:       ? options
+  810:       : (options && options.difficulty) || 'trace';
+  811: 
+  812:     const boxes = templateInfo.boxes || [];
+  813:     const letters = templateInfo.letters && templateInfo.letters.length
+  814:       ? templateInfo.letters
+  815:       : (templateInfo.romaji || '').split('');
+  816: 
+  817:     const result = {
+  818:       score: 0,
+  819:       verdict: 'red',
+  820:       inside: 0,
+  821:       outside: 0,
+  822:       outsidePixels: [],
+  823:       insidePixels: [],
+  824:       message: '',
+  825:       debug: null,
+  826:       perBox: [],
+  827:       userMessage: '',
+  828:       developerMessage: '',
+  829:       reasonUserList: [],
+  830:       reasonDevList: []
+  831:     };
+  832: 
+  833:     const userReasons = [];
+  834:     const devReasons = [];
+  835:     function addUserReason(msg) {
+  836:       if (!msg) return;
+  837:       if (userReasons.indexOf(msg) < 0) userReasons.push(msg);
+  838:     }
+  839:     function addDevReason(msg) {
+  840:       if (!msg) return;
+  841:       if (devReasons.indexOf(msg) < 0) devReasons.push(msg);
+  842:     }
+  843: 
+  844:     if (!templateInfo || !letters || letters.length === 0 || boxes.length === 0) {
+  845:       result.message = '\u898b\u672c\u304c\u3042\u308a\u307e\u305b\u3093';
+  846:       addUserReason(result.message);
+  847:       finalizeReasonFields(result, userReasons, devReasons);
+  848:       return result;
+  849:     }
+  850: 
+  851:     const strokesArray = toStrokesArray(pointsOrStrokes);
+  852:     const boxCount = Math.min(boxes.length, letters.length);
+  853: 
+  854:     let totalScore = 0;
+  855:     let validBoxCount = 0;
+  856:     let sumInside = 0;
+  857:     let sumOutside = 0;
+  858:     const allOutsidePixels = [];
+  859:     const allInsidePixels = [];
+  860: 
+  861:     for (let i = 0; i < boxCount; i++) {
+  862:       const box = boxes[i];
+  863:       if (!box) continue;
+  864:       const letter = letters[i] || '';
+  865: 
+  866:       const boxStrokes = strokesArray
+  867:         .filter(function (s) { return (s.boxIndex != null ? s.boxIndex : 0) === i; })
+  868:         .map(function (s) {
+  869:           return {
+  870:             boxIndex: i,
+  871:             points: (s.points || []).map(function (p) {
+  872:               return {
+  873:                 x: p.x - box.x,
+  874:                 y: p.y - box.y,
+  875:                 t: p.t,
+  876:                 pressure: p.pressure,
+  877:                 pointerType: p.pointerType
+  878:               };
+  879:             })
+  880:           };
+  881:         });
+  882: 
+  883:       let localMetrics = null;
+  884:       if (typeof Template !== 'undefined' && Template.getMetrics) {
+  885:         localMetrics = Template.getMetrics(box.w, box.h);
+  886:       }
+  887: 
+  888:       const localTemplate = {
+  889:         romaji: letter,
+  890:         letter: letter,
+  891:         width: box.w,
+  892:         height: box.h,
+  893:         zoneWidth: templateInfo.zoneWidth || 20,
+  894:         font: templateInfo.font,
+  895:         fontSize: templateInfo.fontSize,
+  896:         strokeWidth: templateInfo.strokeWidth || 0,
+  897:         metrics: localMetrics
+  898:       };
+  899: 
+  900:       const boxRes = gradeSingle(boxStrokes, localTemplate, passLine, { difficulty: difficulty });
+  901:       result.perBox.push(boxRes);
+  902: 
+  903:       totalScore += boxRes.score;
+  904:       validBoxCount++;
+  905:       sumInside += boxRes.inside || 0;
+  906:       sumOutside += boxRes.outside || 0;
+  907: 
+  908:       (boxRes.outsidePixels || []).forEach(function (p) {
+  909:         allOutsidePixels.push({ x: p.x + box.x, y: p.y + box.y });
+  910:       });
+  911:       (boxRes.insidePixels || []).forEach(function (p) {
+  912:         allInsidePixels.push({ x: p.x + box.x, y: p.y + box.y });
+  913:       });
+  914:     }
+  915: 
+  916:     if (validBoxCount === 0) {
+  917:       return gradeSingle(pointsOrStrokes, templateInfo, passLine, options);
+  918:     }
+  919: 
+  920:     const avgScore = totalScore / validBoxCount;
+  921:     result.score = Math.round(Math.max(0, Math.min(100, avgScore)));
+  922: 
+  923:     const anyBoxZero = result.perBox.some(function (br) { return br.score === 0; });
+  924:     if (anyBoxZero) {
+  925:       result.score = 0;
+  926:       result.verdict = 'red';
+  927:       result.message = '\u3069\u308c\u304b1\u67a0\u304c0\u70b9\u3067\u3059';
+  928:       addUserReason('Because one box is 0, total score is forced to 0');
+  929:       addDevReason('multi-box hard rule: any box 0 => total 0');
+  930:     } else {
+  931:       let ocrDecision = { mode: 'none', expected: '', detected: '', confidence: 0, cap: null };
+  932: 
+  933:       if (result.score > 49 && options && Array.isArray(options.ocrPerBox) && options.ocrPerBox.length > 0) {
+  934:         let mismatch = null;
+  935:         for (let i = 0; i < letters.length && i < options.ocrPerBox.length; i++) {
+  936:           const expected = (letters[i] || '').toLowerCase();
+  937:           if (!expected || !/^[a-z]$/.test(expected)) continue;
+  938:           const info = options.ocrPerBox[i];
+  939:           const ocrLetter = (info && info.letter) ? String(info.letter).toLowerCase() : '';
+  940:           if (!ocrLetter || !/^[a-z]$/.test(ocrLetter) || ocrLetter === expected) continue;
+  941:           const conf = (info && typeof info.confidence === 'number' && isFinite(info.confidence)) ? info.confidence : 0;
+  942:           if (!mismatch || conf > mismatch.confidence) {
+  943:             mismatch = { expected: expected, detected: ocrLetter, confidence: conf, index: i };
+  944:           }
+  945:         }
+  946: 
+  947:         if (mismatch) {
+  948:           ocrDecision = applyOcrPenalty(result.score, mismatch.detected, mismatch.expected, mismatch.confidence);
+  949:           result.score = Math.round(ocrDecision.score);
+  950:           if (ocrDecision.mode === 'strong') {
+  951:             result.message = '\u5225\u306e\u6587\u5b57\u306b\u8aad\u307e\u308c\u307e\u3057\u305f';
+  952:             addUserReason('OCR strongly suggests a different character in one box');
+  953:           } else if (ocrDecision.mode === 'soft') {
+  954:             addDevReason('multi OCR soft mismatch box=' + mismatch.index + ' conf=' + mismatch.confidence.toFixed(1));
+  955:           } else {
+  956:             addDevReason('multi OCR mismatch ignored (low confidence) box=' + mismatch.index + ' conf=' + mismatch.confidence.toFixed(1));
+  957:           }
+  958:         }
+  959:       } else if (result.score > 49 && options && options.ocrText !== undefined) {
+  960:         const expectedRomaji = (templateInfo.romaji || letters.join('') || '').toLowerCase().replace(/[^a-z]/g, '');
+  961:         const ocrRaw = String(options.ocrText || '').trim().toLowerCase();
+  962:         const ocrNorm = ocrRaw.replace(/[^a-z]/g, '');
+  963:         if (expectedRomaji.length >= 2 && ocrNorm.length === expectedRomaji.length && ocrNorm !== expectedRomaji) {
+  964:           // no confidence here: keep as debug hint only
+  965:           addDevReason('multi OCR text mismatch kept as hint (no confidence): ' + ocrNorm + ' != ' + expectedRomaji);
+  966:         }
+  967:       }
+  968: 
+  969:       result.ocrDecision = ocrDecision;
+  970:     }
+  971: 
+  972:     const keptMessage = result.message === '\u5225\u306e\u6587\u5b57\u306b\u8aad\u307e\u308c\u307e\u3057\u305f';
+  973:     if (!anyBoxZero) {
+  974:       if (result.score >= passLine) {
+  975:         result.verdict = 'green';
+  976:         if (!keptMessage) result.message = '\u5408\u683c';
+  977:         addUserReason('Per-box shapes are overall good');
+  978:       } else if (result.score >= passLine - 10) {
+  979:         result.verdict = 'yellow';
+  980:         if (!keptMessage) result.message = '\u304a\u3057\u3044';
+  981:         addUserReason('Adjust one or two boxes slightly');
+  982:       } else {
+  983:         result.verdict = 'red';
+  984:         if (!keptMessage) result.message = '\u3082\u3046\u4e00\u56de';
+  985:         addUserReason('Review each box shape and position');
+  986:       }
+  987:     }
+  988: 
+  989:     result.inside = sumInside;
+  990:     result.outside = sumOutside;
+  991:     result.outsidePixels = allOutsidePixels;
+  992:     result.insidePixels = allInsidePixels;
+  993: 
+  994:     const totalPoints = sumInside + sumOutside || 1;
+  995:     result.outsideRate = sumOutside / totalPoints;
+  996:     result.coverage = undefined;
+  997:     result.baseScore = undefined;
+  998:     result.lengthTotal = undefined;
+  999:     result.lengthGate = undefined;
+ 1000:     result.penalty = undefined;
+ 1001: 
+ 1002:     if (options && typeof options === 'object') {
+ 1003:       if (options.ocrText !== undefined) result.ocrText = options.ocrText;
+ 1004:       if (Array.isArray(options.ocrPerBox) && options.ocrPerBox.length > 0) {
+ 1005:         result.ocrText = options.ocrPerBox.map(function (p) { return (p && p.letter) ? p.letter : '-'; }).join(', ');
+ 1006:       }
+ 1007:     }
+ 1008: 
+ 1009:     addDevReason('perBox=' + result.perBox.map(function (b) { return b.score; }).join(','));
+ 1010:     addDevReason('outsideRate=' + result.outsideRate.toFixed(3));
+ 1011: 
+ 1012:     result.debug = null;
+ 1013:     finalizeReasonFields(result, userReasons, devReasons);
+ 1014:     return result;
+ 1015:   }
+ 1016: 
+ 1017:   global.Grading = {
+ 1018:     grade
+ 1019:   };
+ 1020: })(typeof window !== 'undefined' ? window : this);

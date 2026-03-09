@@ -1,6 +1,6 @@
-/**
- * history.js - History 画面の UI 制御
- * 一覧・フィルタ・詳細・リプレイ・削除
+﻿/**
+ * history.js - History 逕ｻ髱｢縺ｮ UI 蛻ｶ蠕｡
+ * 荳隕ｧ繝ｻ繝輔ぅ繝ｫ繧ｿ繝ｻ隧ｳ邏ｰ繝ｻ繝ｪ繝励Ξ繧､繝ｻ蜑企勁
  */
 
 (function (global) {
@@ -24,7 +24,7 @@
         fillFilterKana();
       })
       .catch(err => {
-        showError('history-error', '履歴の読み込みに失敗しました: ' + (err.message || err));
+        showError('history-error', '螻･豁ｴ縺ｮ隱ｭ縺ｿ霎ｼ縺ｿ縺ｫ螟ｱ謨励＠縺ｾ縺励◆: ' + (err.message || err));
       });
   }
 
@@ -33,7 +33,7 @@
     const sel = document.getElementById('filter-kana');
     if (!sel) return;
     const current = sel.value;
-    sel.innerHTML = '<option value="">全てのかな</option>';
+    sel.innerHTML = '<option value="">蜈ｨ縺ｦ縺ｮ縺九↑</option>';
     [...kanaSet].sort().forEach(k => {
       const opt = document.createElement('option');
       opt.value = k;
@@ -60,20 +60,28 @@
     const container = document.getElementById('history-list');
     if (!container) return;
     container.innerHTML = '';
+
+    const summary = document.createElement('div');
+    summary.className = 'history-summary-card';
+    const best = list.reduce((m, r) => Math.max(m, r.score || 0), 0);
+    summary.textContent = 'Records: ' + list.length + ' / Best score: ' + best + ' pts';
+    container.appendChild(summary);
+
     list.forEach(r => {
       const div = document.createElement('div');
       div.className = 'history-item';
       div.dataset.id = r.id;
-      const vLabel = { green: '合格', yellow: 'おしい', red: 'もう一回' }[r.verdict] || '';
-      div.innerHTML = `
-        <div class="history-item-header">
-          <span class="history-item-kana">${escapeHtml(r.kana)}</span>
-          <span class="history-item-verdict ${r.verdict || ''}">${vLabel}</span>
-        </div>
-        <div class="history-item-meta">
-          ${formatDate(r.timestamp)} | ${escapeHtml(r.romaji)} | ${r.difficulty} | ${r.score}点
-        </div>
-      `;
+      const vLabel = { green: 'Pass', yellow: 'Close', red: 'Retry' }[r.verdict] || '';
+      const score = Math.max(0, Math.min(100, Math.round(r.score || 0)));
+      div.innerHTML =
+        '<div class=\"history-item-header\">' +
+          '<span class=\"history-item-kana\">' + escapeHtml(r.kana) + '</span>' +
+          '<span class=\"history-item-verdict ' + (r.verdict || '') + '\">' + vLabel + '</span>' +
+        '</div>' +
+        '<div class=\"history-item-meta\">' +
+          formatDate(r.timestamp) + ' | ' + escapeHtml(r.romaji) + ' | ' + r.difficulty + ' | ' + score + ' pts' +
+        '</div>' +
+        '<div class=\"history-score-track\"><span class=\"history-score-fill\" style=\"width:' + score + '%\"></span></div>';
       div.addEventListener('click', () => showHistoryDetail(r.id));
       container.appendChild(div);
     });
@@ -87,12 +95,20 @@
     const infoEl = document.getElementById('detail-info');
     if (detail) detail.classList.remove('hidden');
     if (infoEl) {
-      infoEl.innerHTML = `
-        <p>${escapeHtml(r.kana)} → ${escapeHtml(r.romaji)}</p>
-        <p>日時: ${formatDate(r.timestamp)}</p>
-        <p>難易度: ${r.difficulty} | スコア: ${r.score} | ${{ green: '合格', yellow: 'おしい', red: 'もう一回' }[r.verdict]}</p>
-        <p>許容ゾーン: ${r.settings?.zoneWidth ?? '—'}px | 補正: ${r.settings?.smoothing ?? '—'} | 合格ライン: ${r.settings?.passLine ?? '—'}%</p>
-      `;
+      // Build detail with textContent to avoid HTML/script injection from stored values.
+      infoEl.textContent = '';
+      const verdictLabel = { green: 'Pass', yellow: 'Close', red: 'Retry' }[r.verdict] || '';
+      const lines = [
+        String(r.kana || '') + ' - ' + String(r.romaji || ''),
+        'Date: ' + formatDate(r.timestamp),
+        'Difficulty: ' + String(r.difficulty || '-') + ' | Score: ' + String(r.score ?? 0) + ' | ' + verdictLabel,
+        'Zone: ' + String(r.settings?.zoneWidth ?? '-') + 'px | Smoothing: ' + String(r.settings?.smoothing ?? '-') + ' | Pass line: ' + String(r.settings?.passLine ?? '-') + '%'
+      ];
+      lines.forEach(function (line) {
+        const p = document.createElement('p');
+        p.textContent = line;
+        infoEl.appendChild(p);
+      });
     }
   }
 
@@ -153,10 +169,10 @@
     const btnDelAll = document.getElementById('btn-delete-all');
     if (btnDelAll) {
       btnDelAll.addEventListener('click', () => {
-        if (!confirm('全ての履歴を削除しますか？')) return;
+        if (!confirm('Delete all history records?')) return;
         deleteAllRecords()
           .then(() => { loadHistory(); closeHistoryDetail(); })
-          .catch(err => showError('history-error', '削除に失敗: ' + (err.message || err)));
+          .catch(err => showError('history-error', '蜑企勁縺ｫ螟ｱ謨・ ' + (err.message || err)));
       });
     }
 
@@ -169,7 +185,7 @@
     if (btnDelOne) {
       btnDelOne.addEventListener('click', () => {
         if (!selectedHistoryId) return;
-        if (!confirm('この1件を削除しますか？')) return;
+        if (!confirm('Delete this history record?')) return;
         deleteRecord(selectedHistoryId)
           .then(() => {
             historyRecords = historyRecords.filter(rec => rec.id !== selectedHistoryId);
@@ -177,7 +193,7 @@
             fillFilterKana();
             closeHistoryDetail();
           })
-          .catch(err => showError('history-error', '削除に失敗: ' + (err.message || err)));
+          .catch(err => showError('history-error', '蜑企勁縺ｫ螟ｱ謨・ ' + (err.message || err)));
       });
     }
   }
