@@ -518,7 +518,7 @@
 
       const userMsg = result.userMessage || result.message || '';
       if (vEl) {
-        vEl.textContent = userMsg + ' (' + result.score + '?)';
+        vEl.textContent = userMsg + ' (' + result.score + '\u70b9)';
         vEl.className = 'verdict-display ' + result.verdict;
       }
       Draw.drawFeedback(result.outsidePixels);
