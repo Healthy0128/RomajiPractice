@@ -150,7 +150,7 @@
       result.verdict = 'red';
       result.message = '\u7dda\u304c\u77ed\u3059\u304e\u307e\u3059';
       result.score = 0;
-      addUserReason(result.message || '?????????????');
+      addUserReason(result.message || '\u63a1\u70b9\u7406\u7531\u3092\u78ba\u8a8d\u3057\u3066\u304f\u3060\u3055\u3044');
       addDevReason('length ' + totalStrokeLength.toFixed(1) + ' < gate ' + minStrokeLength.toFixed(1));
       finalizeReasonFields(result, userReasons, devReasons);
       return result;
@@ -161,7 +161,7 @@
       result.verdict = 'red';
       result.message = '\u70b9\u304c\u5c11\u306a\u3059\u304e\u307e\u3059';
       result.score = 0;
-      addUserReason(result.message || '?????????????');
+      addUserReason(result.message || '\u63a1\u70b9\u7406\u7531\u3092\u78ba\u8a8d\u3057\u3066\u304f\u3060\u3055\u3044');
       addDevReason('sampled points=' + sampled.length);
       finalizeReasonFields(result, userReasons, devReasons);
       return result;
@@ -174,7 +174,7 @@
       result.verdict = 'red';
       result.message = '\u7aef\u306e\u8aa4\u30bf\u30c3\u30c1\u304c\u591a\u3044\u3067\u3059';
       result.score = 0;
-      addUserReason(result.message || '?????????????');
+      addUserReason(result.message || '\u63a1\u70b9\u7406\u7531\u3092\u78ba\u8a8d\u3057\u3066\u304f\u3060\u3055\u3044');
       addDevReason('edge points ratio=' + (edgeCount / sampled.length).toFixed(3));
       finalizeReasonFields(result, userReasons, devReasons);
       return result;
@@ -196,7 +196,7 @@
         result.verdict = 'red';
         result.message = '\u4f4d\u7f6e\u304c\u5927\u304d\u304f\u305a\u308c\u3066\u3044\u307e\u3059';
         result.score = 0;
-        addUserReason(result.message || '?????????????');
+      addUserReason(result.message || '\u63a1\u70b9\u7406\u7531\u3092\u78ba\u8a8d\u3057\u3066\u304f\u3060\u3055\u3044');
         addDevReason('center gate fail dx=' + dxRatio.toFixed(3) + ', dy=' + dyRatio.toFixed(3));
         result.debug = { userBBox: userBBox, templateBBox: templateBBox, normalizedBBox: null };
         finalizeReasonFields(result, userReasons, devReasons);
@@ -267,7 +267,7 @@
             finalScore = ocrDecision.score;
             if (ocrDecision.mode === 'strong') {
               result.message = '\u5225\u306e\u6587\u5b57\u306b\u8aad\u307e\u308c\u307e\u3057\u305f';
-              addUserReason(result.message || '?????????????');
+      addUserReason(result.message || '\u63a1\u70b9\u7406\u7531\u3092\u78ba\u8a8d\u3057\u3066\u304f\u3060\u3055\u3044');
             } else if (ocrDecision.mode === 'soft') {
               addDevReason('OCR soft mismatch cap=' + ocrDecision.cap + ' conf=' + parsed.confidence.toFixed(1));
             } else {
@@ -305,26 +305,26 @@
     if (result.score >= passLine) {
       result.verdict = 'green';
       if (!keptMessage) result.message = '\u5408\u683c';
-      addUserReason(result.message || '?????????????');
+      addUserReason(result.message || '\u63a1\u70b9\u7406\u7531\u3092\u78ba\u8a8d\u3057\u3066\u304f\u3060\u3055\u3044');
     } else if (result.score >= passLine - 10) {
       result.verdict = 'yellow';
       if (!keptMessage) result.message = '\u304a\u3057\u3044';
-      addUserReason(result.message || '?????????????');
+      addUserReason(result.message || '\u63a1\u70b9\u7406\u7531\u3092\u78ba\u8a8d\u3057\u3066\u304f\u3060\u3055\u3044');
     } else {
       result.verdict = 'red';
       if (!keptMessage) {
         if (totalStrokeLength < minStrokeLength * 1.05) {
           result.message = '\u7dda\u304c\u77ed\u3059\u304e\u307e\u3059';
-          addUserReason(result.message || '?????????????');
+      addUserReason(result.message || '\u63a1\u70b9\u7406\u7531\u3092\u78ba\u8a8d\u3057\u3066\u304f\u3060\u3055\u3044');
         } else if (outsideRate > 0.35) {
           result.message = '\u7dda\u304c\u306f\u307f\u51fa\u3057\u3066\u3044\u307e\u3059';
-          addUserReason(result.message || '?????????????');
+      addUserReason(result.message || '\u63a1\u70b9\u7406\u7531\u3092\u78ba\u8a8d\u3057\u3066\u304f\u3060\u3055\u3044');
         } else if (coverage < 0.5) {
           result.message = '\u898b\u672c\u306e\u7dda\u3092\u3082\u3046\u5c11\u3057\u306a\u305e\u3063\u3066\u304f\u3060\u3055\u3044';
-          addUserReason(result.message || '?????????????');
+      addUserReason(result.message || '\u63a1\u70b9\u7406\u7531\u3092\u78ba\u8a8d\u3057\u3066\u304f\u3060\u3055\u3044');
         } else {
           result.message = '\u3082\u3046\u4e00\u56de';
-          addUserReason(result.message || '?????????????');
+      addUserReason(result.message || '\u63a1\u70b9\u7406\u7531\u3092\u78ba\u8a8d\u3057\u3066\u304f\u3060\u3055\u3044');
         }
       }
     }
@@ -943,7 +943,7 @@
       result.score = 0;
       result.verdict = 'red';
       result.message = '\u3069\u308c\u304b1\u67a0\u304c0\u70b9\u3067\u3059';
-      addUserReason(result.message || '?????????????');
+      addUserReason(result.message || '\u63a1\u70b9\u7406\u7531\u3092\u78ba\u8a8d\u3057\u3066\u304f\u3060\u3055\u3044');
       addDevReason('multi-box hard rule: any box 0 => total 0');
     } else {
       let ocrDecision = { mode: 'none', expected: '', detected: '', confidence: 0, cap: null };
@@ -972,7 +972,7 @@
           result.score = Math.round(ocrDecision.score);
           if (ocrDecision.mode === 'strong') {
             result.message = '\u5225\u306e\u6587\u5b57\u306b\u8aad\u307e\u308c\u307e\u3057\u305f';
-            addUserReason(result.message || '?????????????');
+      addUserReason(result.message || '\u63a1\u70b9\u7406\u7531\u3092\u78ba\u8a8d\u3057\u3066\u304f\u3060\u3055\u3044');
           } else if (ocrDecision.mode === 'soft') {
             addDevReason('multi OCR soft mismatch box=' + mismatch.index + ' conf=' + mismatch.confidence.toFixed(1));
           } else {
@@ -997,15 +997,15 @@
       if (result.score >= passLine) {
         result.verdict = 'green';
         if (!keptMessage) result.message = '\u5408\u683c';
-        addUserReason(result.message || '?????????????');
+      addUserReason(result.message || '\u63a1\u70b9\u7406\u7531\u3092\u78ba\u8a8d\u3057\u3066\u304f\u3060\u3055\u3044');
       } else if (result.score >= passLine - 10) {
         result.verdict = 'yellow';
         if (!keptMessage) result.message = '\u304a\u3057\u3044';
-        addUserReason(result.message || '?????????????');
+      addUserReason(result.message || '\u63a1\u70b9\u7406\u7531\u3092\u78ba\u8a8d\u3057\u3066\u304f\u3060\u3055\u3044');
       } else {
         result.verdict = 'red';
         if (!keptMessage) result.message = '\u3082\u3046\u4e00\u56de';
-        addUserReason(result.message || '?????????????');
+      addUserReason(result.message || '\u63a1\u70b9\u7406\u7531\u3092\u78ba\u8a8d\u3057\u3066\u304f\u3060\u3055\u3044');
       }
     }
 

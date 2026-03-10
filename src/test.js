@@ -168,7 +168,7 @@
       advanced.id = 'test-advanced-settings';
       advanced.className = 'settings-details';
       const summary = document.createElement('summary');
-      summary.textContent = '????';
+      summary.textContent = '\u8a73\u7d30\u8a2d\u5b9a';
       advanced.appendChild(summary);
 
       const rows = Array.from(testConfig.querySelectorAll('.test-config-row'));
@@ -185,7 +185,7 @@
       const d = document.createElement('details');
       d.className = 'debug-details';
       const sum = document.createElement('summary');
-      sum.textContent = '????';
+      sum.textContent = '\u30c7\u30d0\u30c3\u30b0\u8868\u793a';
       d.appendChild(sum);
       debugToggle.parentNode.insertBefore(d, debugToggle);
       d.appendChild(debugToggle);
@@ -208,8 +208,8 @@
     if (!hint || !result) return;
     const improve = (result.reasonUserList && result.reasonUserList.length)
       ? result.reasonUserList[result.reasonUserList.length - 1]
-      : '???????????????';
-    hint.textContent = '???: ' + improve;
+      : '\u63a1\u70b9\u7406\u7531\u3092\u78ba\u8a8d\u3057\u3066\u304f\u3060\u3055\u3044';
+    hint.textContent = '\u6539\u5584\u30dd\u30a4\u30f3\u30c8: ' + improve;
   }
 
   function bindTestConfig() {
@@ -247,7 +247,7 @@
       list = shuffle(list).slice(0, count);
     } else {
       if (selectedKanaForSelect.length === 0) {
-        showError('test-error', '???????1??????????');
+        showError('test-error', '\u6587\u5b57\u30921\u3064\u4ee5\u4e0a\u9078\u3093\u3067\u304f\u3060\u3055\u3044');
         return;
       }
       list = selectedKanaForSelect.map(k => getKanaData(k)).filter(Boolean);
@@ -255,10 +255,9 @@
     }
 
     if (list.length === 0) {
-      showError('test-error', '?????????????');
+      showError('test-error', '\u51fa\u984c\u3059\u308b\u6587\u5b57\u304c\u3042\u308a\u307e\u305b\u3093');
       return;
     }
-
     questionList = list;
     currentIndex = 0;
     testResults = [];
@@ -368,7 +367,7 @@
     const vEl = document.getElementById('test-verdict');
     const ocrInfo = result.ocrText != null && result.ocrText !== ''
       ? ` / OCR: ${String(result.ocrText)}`
-      : ' / OCR: ????';
+      : ' / OCR: \u306a\u3057';
     const userMsg = result.userMessage || result.message || '';
     vEl.textContent = userMsg + ' (' + result.score + ' ' + '\u70b9)' + ocrInfo;
     vEl.className = 'verdict-display ' + result.verdict;
@@ -584,9 +583,9 @@
     if (wrongContainer) {
       wrongContainer.innerHTML = '';
       if (wrongList.length === 0) {
-        wrongContainer.innerHTML = '<p class="muted">??????</p>';
+        wrongContainer.innerHTML = '<p class="muted">\u5168\u554f\u6b63\u89e3\u3067\u3059</p>';
       } else {
-        wrongContainer.innerHTML = '<p>??????</p>';
+        wrongContainer.innerHTML = '<p>\u9593\u9055\u3048\u305f\u6587\u5b57</p>';
         wrongList.forEach(r => {
           const btn = document.createElement('button');
           btn.className = 'action-btn char-btn';

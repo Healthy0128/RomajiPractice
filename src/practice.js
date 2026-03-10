@@ -456,7 +456,7 @@
         const block = document.getElementById('practice-history-preview');
         if (!block) return;
         const show = block.classList.toggle('hidden');
-        historyToggle.textContent = show ? '?????' : '?????';
+        historyToggle.textContent = show ? '\u5c65\u6b74\u3092\u8868\u793a' : '\u5c65\u6b74\u3092\u96a0\u3059';
         if (!show) refreshHistoryPreview();
         if (typeof Draw.syncCanvasToWrap === 'function') Draw.syncCanvasToWrap();
         Draw.redrawAll();
@@ -495,7 +495,7 @@
     const data = getKanaData(currentKana);
     const templateInfo = Draw.getTemplateForGrading();
     if (!templateInfo.romaji || templateInfo.romaji.length === 0) {
-      showError('practice-error', '????????????????');
+      showError('practice-error', '\u624b\u672c\u30c6\u30f3\u30d7\u30ec\u30fc\u30c8\u304c\u898b\u3064\u304b\u308a\u307e\u305b\u3093');
       finishCheck();
       return;
     }
@@ -542,7 +542,7 @@
           const baseScore = result.baseScore ?? 0;
           const finalScore = result.score ?? 0;
           const penalty = result.penalty ?? 0;
-          const ocrInfo = (result.ocrText != null && result.ocrText !== '') ? String(result.ocrText) : 'OCR??';
+          const ocrInfo = (result.ocrText != null && result.ocrText !== '') ? String(result.ocrText) : 'OCR\u306a\u3057';
           const perBoxLine = (result.perBox && result.perBox.length > 0)
             ? 'perBox: ' + result.perBox.map(function (b) { return b.score; }).join(', ') + '\n'
             : '';
@@ -567,10 +567,10 @@
             ? result.ocrDecision.cap
             : '-';
           panel.textContent =
-            '[????????] ' + userReason + '\n' +
-            '[???????] ' + devReason + '\n' +
-            '?????: ' + (result.message || '-') + '\n' +
-            'OCR??: ' + ocrDecision + ' / OCR??: ' + ocrCap + '\n' +
+            '[\u30e6\u30fc\u30b6\u30fc\u5411\u3051\u7406\u7531] ' + userReason + '\n' +
+            '[\u958b\u767a\u8005\u5411\u3051\u7406\u7531] ' + devReason + '\n' +
+            '\u30e1\u30c3\u30bb\u30fc\u30b8: ' + (result.message || '-') + '\n' +
+            'OCR\u5224\u5b9a: ' + ocrDecision + ' / OCR\u4e0a\u9650: ' + ocrCap + '\n' +
             perBoxLine +
             perBoxOcrLine +
             'inside: ' + inside + ' / outside: ' + outside + ' (rate: ' + (outsideRate * 100).toFixed(1) + '%)\n' +
@@ -617,7 +617,7 @@
       }).catch(function (err) {
         lastPracticeSaveSig = '';
         lastPracticeSaveAt = 0;
-        showError('practice-error', '????????????: ' + (err && err.message ? err.message : err));
+        showError('practice-error', '\u8a18\u9332\u306e\u4fdd\u5b58\u306b\u5931\u6557\u3057\u307e\u3057\u305f: ' + (err && err.message ? err.message : err));
       });
     }
 
@@ -626,7 +626,7 @@
     const hasTesseract = typeof Tesseract !== 'undefined' && Tesseract.recognize;
 
     if (vEl) {
-      vEl.textContent = '?????...';
+      vEl.textContent = '\u5224\u5b9a\u4e2d\u3067\u3059...';
       vEl.className = 'verdict-display';
     }
 

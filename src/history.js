@@ -24,7 +24,7 @@
         fillFilterKana();
       })
       .catch(err => {
-        showError('history-error', '??????????????: ' + (err.message || err));
+        showError('history-error', '\u5c65\u6b74\u306e\u8aad\u307f\u8fbc\u307f\u306b\u5931\u6557\u3057\u307e\u3057\u305f: ' + (err.message || err));
       });
   }
 
@@ -33,7 +33,7 @@
     const sel = document.getElementById('filter-kana');
     if (!sel) return;
     const current = sel.value;
-    sel.innerHTML = '<option value="">??????</option>';
+    sel.innerHTML = '<option value="">\u3059\u3079\u3066</option>';
     [...kanaSet].sort().forEach(k => {
       const opt = document.createElement('option');
       opt.value = k;
@@ -64,14 +64,14 @@
     const summary = document.createElement('div');
     summary.className = 'history-summary-card';
     const best = list.reduce((m, r) => Math.max(m, r.score || 0), 0);
-    summary.textContent = '??: ' + list.length + ' / ???: ' + best + '?';
+    summary.textContent = '\u4ef6\u6570: ' + list.length + ' / \u6700\u9ad8: ' + best + '\u70b9';
     container.appendChild(summary);
 
     list.forEach(r => {
       const div = document.createElement('div');
       div.className = 'history-item';
       div.dataset.id = r.id;
-      const vLabel = { green: '??', yellow: '???', red: '????' }[r.verdict] || '';
+      const vLabel = { green: '\u5408\u683c', yellow: '\u304a\u3057\u3044', red: '\u3082\u3046\u4e00\u56de' }[r.verdict] || ''; 
       const score = Math.max(0, Math.min(100, Math.round(r.score || 0)));
       div.innerHTML =
         '<div class=\"history-item-header\">' +
@@ -79,7 +79,7 @@
           '<span class=\"history-item-verdict ' + (r.verdict || '') + '\">' + vLabel + '</span>' +
         '</div>' +
         '<div class=\"history-item-meta\">' +
-          formatDate(r.timestamp) + ' | ' + escapeHtml(r.romaji) + ' | ' + r.difficulty + ' | ' + score + '?' +
+          formatDate(r.timestamp) + ' | ' + escapeHtml(r.romaji) + ' | ' + r.difficulty + ' | ' + score + '\u70b9' +
         '</div>' +
         '<div class=\"history-score-track\"><span class=\"history-score-fill\" style=\"width:' + score + '%\"></span></div>';
       div.addEventListener('click', () => showHistoryDetail(r.id));
@@ -97,12 +97,12 @@
     if (infoEl) {
       // Build detail with textContent to avoid HTML/script injection from stored values.
       infoEl.textContent = '';
-      const verdictLabel = { green: '??', yellow: '???', red: '????' }[r.verdict] || '';
+      const verdictLabel = { green: '\u5408\u683c', yellow: '\u304a\u3057\u3044', red: '\u3082\u3046\u4e00\u56de' }[r.verdict] || ''; 
       const lines = [
         String(r.kana || '') + ' - ' + String(r.romaji || ''),
-        '??: ' + formatDate(r.timestamp),
-        '???: ' + String(r.difficulty || '-') + ' | ???: ' + String(r.score ?? 0) + '? | ' + verdictLabel,
-        '?????: ' + String(r.settings?.zoneWidth ?? '-') + 'px | ??: ' + String(r.settings?.smoothing ?? '-') + ' | ?????: ' + String(r.settings?.passLine ?? '-') + '%'
+        '\u65e5\u6642: ' + formatDate(r.timestamp),
+        '\u96e3\u6613\u5ea6: ' + String(r.difficulty || '-') + ' | \u30b9\u30b3\u30a2: ' + String(r.score ?? 0) + '\u70b9 | ' + verdictLabel,
+        '\u8a2d\u5b9a: \u5e45 ' + String(r.settings?.zoneWidth ?? '-') + 'px | \u88dc\u6b63 ' + String(r.settings?.smoothing ?? '-') + ' | \u5408\u683c\u7dda ' + String(r.settings?.passLine ?? '-') + '%'
       ];
       lines.forEach(function (line) {
         const p = document.createElement('p');
@@ -169,10 +169,10 @@
     const btnDelAll = document.getElementById('btn-delete-all');
     if (btnDelAll) {
       btnDelAll.addEventListener('click', () => {
-        if (!confirm('????????????????????')) return;
+        if (!confirm('\u5c65\u6b74\u3092\u3059\u3079\u3066\u524a\u9664\u3057\u307e\u3059\u3002\u3088\u308d\u3057\u3044\u3067\u3059\u304b\uff1f')) return;
         deleteAllRecords()
           .then(() => { loadHistory(); closeHistoryDetail(); })
-          .catch(err => showError('history-error', '蜑企勁縺ｫ螟ｱ謨・ ' + (err.message || err)));
+          .catch(err => showError('history-error', '\u524a\u9664\u306b\u5931\u6557: ' + (err.message || err)));
       });
     }
 
@@ -185,7 +185,7 @@
     if (btnDelOne) {
       btnDelOne.addEventListener('click', () => {
         if (!selectedHistoryId) return;
-        if (!confirm('???????????????????')) return;
+        if (!confirm('\u3053\u306e\u5c65\u6b74\u3092\u524a\u9664\u3057\u307e\u3059\u3002\u3088\u308d\u3057\u3044\u3067\u3059\u304b\uff1f')) return;
         deleteRecord(selectedHistoryId)
           .then(() => {
             historyRecords = historyRecords.filter(rec => rec.id !== selectedHistoryId);
@@ -193,7 +193,7 @@
             fillFilterKana();
             closeHistoryDetail();
           })
-          .catch(err => showError('history-error', '蜑企勁縺ｫ螟ｱ謨・ ' + (err.message || err)));
+          .catch(err => showError('history-error', '\u524a\u9664\u306b\u5931\u6557: ' + (err.message || err)));
       });
     }
   }
