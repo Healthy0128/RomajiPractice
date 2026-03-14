@@ -22,6 +22,8 @@
   const SOFT_ALIGN_SCALE_MAX = 1.15;
   const OCR_STRONG_GATE = 90;               // strong OCR cap only when confidence is very high
   const OCR_SOFT_GATE = 78;                 // low confidence OCR is treated as hint only
+  const SHAPE_RESCUE_GATE = 78;             // handwriting-core style: keep shape and zone as the main signal
+  const DIST_RESCUE_GATE = 70;
 
 
   // Fade / Blind 騾包ｽｨ邵ｺ・ｮ闖ｴ蜥ｲ・ｽ・ｮ郢ｧ・ｲ郢晢ｽｼ郢晏現繝ｻ雎・ｽ｣髫穂ｸ槫密郢昜ｻ｣ﾎ帷ｹ晢ｽ｡郢晢ｽｼ郢ｧ・ｿ
@@ -231,7 +233,8 @@
     let baseScore = insideRate * 100;
     const coverageFactor = 0.86 + 0.14 * coverage;
     baseScore = baseScore * coverageFactor;
-    baseScore = (baseScore * 0.78) + (shapeScore * 0.14) + (distributionScore * 0.08);
+    // 2026-03: shape/distribution are weighted a bit more so small size differences do not sink fair attempts.
+    baseScore = (baseScore * 0.62) + (shapeScore * 0.23) + (distributionScore * 0.15);
 
     let rescueBonus = 0;
     if (coverage < 0.55 && shapeScore >= 80 && insideRate >= 0.72) {
@@ -239,18 +242,29 @@
       baseScore += rescueBonus;
       addDevReason('low-coverage rescue +' + rescueBonus.toFixed(1));
     }
+    if (shapeScore >= SHAPE_RESCUE_GATE && distributionScore >= DIST_RESCUE_GATE && insideRate >= 0.66) {
+      const shapeRescue = Math.min(
+        9,
+        ((shapeScore - SHAPE_RESCUE_GATE) * 0.22) +
+        ((distributionScore - DIST_RESCUE_GATE) * 0.14) +
+        Math.max(0, (insideRate - 0.66) * 10)
+      );
+      baseScore += shapeRescue;
+      rescueBonus += shapeRescue;
+      addDevReason('shape rescue +' + shapeRescue.toFixed(1));
+    }
 
     if (normalizeShape && userBBox && templateBBox) {
       const dxRatio = Math.abs(userBBox.cx - templateBBox.cx) / maskW;
       const dyRatio = Math.abs(userBBox.cy - templateBBox.cy) / maskH;
       const nx = Math.max(0, dxRatio - CENTER_SOFT_X_RATIO) / Math.max(1e-6, CENTER_GATE_X_RATIO - CENTER_SOFT_X_RATIO);
       const ny = Math.max(0, dyRatio - CENTER_SOFT_Y_RATIO) / Math.max(1e-6, CENTER_GATE_Y_RATIO - CENTER_SOFT_Y_RATIO);
-      const centerPenalty = nx * 8 + ny * 16;
+      const centerPenalty = nx * 6 + ny * 12;
       baseScore = Math.max(0, baseScore - centerPenalty);
       addDevReason('center penalty=' + centerPenalty.toFixed(2));
     }
 
-    const penalty = Math.min(12, Math.max(0, outsideRate * 20));
+    const penalty = Math.min(10, Math.max(0, outsideRate * 16));
     let finalScore = Math.max(0, Math.min(100, baseScore - penalty));
 
     // 2026-03: OCR affects score strongly only with high confidence
@@ -263,7 +277,11 @@
           if (parsed.alphaLength > 1) {
             addDevReason('OCR mismatch ignored (multi-alpha text) alphaLen=' + parsed.alphaLength);
           } else {
-            ocrDecision = applyOcrPenalty(finalScore, parsed.letter, expectedLetter, parsed.confidence);
+            ocrDecision = applyOcrPenalty(finalScore, parsed.letter, expectedLetter, parsed.confidence, {
+              shapeScore: shapeScore,
+              distributionScore: distributionScore,
+              insideRate: insideRate
+            });
             finalScore = ocrDecision.score;
             if (ocrDecision.mode === 'strong') {
               result.message = '\u5225\u306e\u6587\u5b57\u306b\u8aad\u307e\u308c\u307e\u3057\u305f';
@@ -443,7 +461,7 @@
     return { letter: letter, confidence: confidence, alphaLength: alphaLength, source: source };
   }
 
-  function applyOcrPenalty(currentScore, detected, expected, confidence) {
+  function applyOcrPenalty(currentScore, detected, expected, confidence, context) {
     if (!detected || !expected || detected === expected) {
       return { mode: 'none', score: currentScore, expected: expected, detected: detected, confidence: confidence || 0, cap: null };
     }
@@ -451,12 +469,28 @@
     const conf = (typeof confidence === 'number' && isFinite(confidence)) ? confidence : 0;
     const confusables = getConfusableLetters(expected);
     const isConfusable = confusables.indexOf(detected) >= 0;
-    const strongCap = isConfusable ? 59 : 49;
-    const softCap = isConfusable ? 79 : 69;
-    if (conf >= OCR_STRONG_GATE) {
+    const shapeScore = context && typeof context.shapeScore === 'number' ? context.shapeScore : 0;
+    const distributionScore = context && typeof context.distributionScore === 'number' ? context.distributionScore : 0;
+    const insideRate = context && typeof context.insideRate === 'number' ? context.insideRate : 0;
+    const shapeLooksRight = shapeScore >= 84 && distributionScore >= 74 && insideRate >= 0.68;
+    const shapeLooksMostlyRight = shapeScore >= 78 && distributionScore >= 68 && insideRate >= 0.62;
+
+    // 2026-03: if the handwritten shape already matches well, OCR is treated as a hint, not a veto.
+    if (shapeLooksRight && conf < 97) {
+      return { mode: 'none', score: currentScore, expected: expected, detected: detected, confidence: conf, cap: null };
+    }
+    if (shapeLooksMostlyRight && isConfusable && conf < 93) {
+      return { mode: 'none', score: currentScore, expected: expected, detected: detected, confidence: conf, cap: null };
+    }
+
+    const strongGate = shapeLooksMostlyRight ? OCR_STRONG_GATE + 4 : OCR_STRONG_GATE;
+    const softGate = shapeLooksMostlyRight ? OCR_SOFT_GATE + 6 : OCR_SOFT_GATE;
+    const strongCap = isConfusable ? 69 : 59;
+    const softCap = isConfusable ? 84 : 74;
+    if (conf >= strongGate) {
       return { mode: 'strong', score: Math.min(currentScore, strongCap), expected: expected, detected: detected, confidence: conf, cap: strongCap };
     }
-    if (conf >= OCR_SOFT_GATE) {
+    if (conf >= softGate) {
       return { mode: 'soft', score: Math.min(currentScore, softCap), expected: expected, detected: detected, confidence: conf, cap: softCap };
     }
     return { mode: 'none', score: currentScore, expected: expected, detected: detected, confidence: conf, cap: null };
@@ -858,6 +892,20 @@
       if (!msg) return;
       if (devReasons.indexOf(msg) < 0) devReasons.push(msg);
     }
+    function isHardZeroBox(boxRes) {
+      if (!boxRes || boxRes.score !== 0) return false;
+      const totalPoints = (boxRes.inside || 0) + (boxRes.outside || 0);
+      const lengthTotal = typeof boxRes.lengthTotal === 'number' ? boxRes.lengthTotal : 0;
+      const lengthGate = typeof boxRes.lengthGate === 'number' ? boxRes.lengthGate : 0;
+      const message = String(boxRes.message || '');
+      if (totalPoints === 0) return true;
+      if (lengthGate > 0 && lengthTotal < lengthGate * 0.45) return true;
+      return (
+        message === '線が短すぎます' ||
+        message === '点が少なすぎます' ||
+        message === '各枠に文字を書いてください'
+      );
+    }
 
     if (!templateInfo || !letters || letters.length === 0 || boxes.length === 0) {
       result.message = '\u898b\u672c\u304c\u3042\u308a\u307e\u305b\u3093';
@@ -938,14 +986,27 @@
     const avgScore = totalScore / validBoxCount;
     result.score = Math.round(Math.max(0, Math.min(100, avgScore)));
 
-    const anyBoxZero = result.perBox.some(function (br) { return br.score === 0; });
-    if (anyBoxZero) {
+    const hardZeroBoxes = result.perBox.filter(isHardZeroBox);
+    const minBoxScore = result.perBox.reduce(function (min, br) {
+      return Math.min(min, br && typeof br.score === 'number' ? br.score : 100);
+    }, 100);
+    const lowBoxCount = result.perBox.filter(function (br) {
+      return br && typeof br.score === 'number' && br.score < passLine - 12;
+    }).length;
+
+    if (hardZeroBoxes.length > 0) {
       result.score = 0;
       result.verdict = 'red';
       result.message = '\u3069\u308c\u304b1\u67a0\u304c0\u70b9\u3067\u3059';
       addUserReason(result.message || '\u63a1\u70b9\u7406\u7531\u3092\u78ba\u8a8d\u3057\u3066\u304f\u3060\u3055\u3044');
-      addDevReason('multi-box hard rule: any box 0 => total 0');
+      addDevReason('multi-box hard rule: empty/too-short box => total 0');
     } else {
+      if (lowBoxCount <= 1 && result.score >= passLine - 15 && minBoxScore >= passLine - 25) {
+        const rescue = Math.min(5, Math.max(0, (passLine - result.score) * 0.7));
+        result.score = Math.round(Math.min(100, result.score + rescue));
+        addDevReason('multi-box rescue +' + rescue.toFixed(1));
+      }
+
       let ocrDecision = { mode: 'none', expected: '', detected: '', confidence: 0, cap: null };
 
       if (result.score > 49 && options && Array.isArray(options.ocrPerBox) && options.ocrPerBox.length > 0) {
@@ -968,7 +1029,14 @@
         }
 
         if (mismatch) {
-          ocrDecision = applyOcrPenalty(result.score, mismatch.detected, mismatch.expected, mismatch.confidence);
+          const boxScore = result.perBox[mismatch.index] || null;
+          ocrDecision = applyOcrPenalty(result.score, mismatch.detected, mismatch.expected, mismatch.confidence, {
+            shapeScore: boxScore && typeof boxScore.shapeScore === 'number' ? boxScore.shapeScore : 0,
+            distributionScore: boxScore && typeof boxScore.distributionScore === 'number' ? boxScore.distributionScore : 0,
+            insideRate: boxScore && typeof boxScore.inside === 'number' && typeof boxScore.outside === 'number'
+              ? (boxScore.inside / Math.max(1, boxScore.inside + boxScore.outside))
+              : 0
+          });
           result.score = Math.round(ocrDecision.score);
           if (ocrDecision.mode === 'strong') {
             result.message = '\u5225\u306e\u6587\u5b57\u306b\u8aad\u307e\u308c\u307e\u3057\u305f';
@@ -993,7 +1061,7 @@
     }
 
     const keptMessage = result.message === '\u5225\u306e\u6587\u5b57\u306b\u8aad\u307e\u308c\u307e\u3057\u305f';
-    if (!anyBoxZero) {
+    if (hardZeroBoxes.length === 0) {
       if (result.score >= passLine) {
         result.verdict = 'green';
         if (!keptMessage) result.message = '\u5408\u683c';

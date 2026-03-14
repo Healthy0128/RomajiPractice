@@ -1,0 +1,837 @@
+{
+  "timestamp": "2026-03-14T05:52:27.814Z",
+  "records": [
+    {
+      "character": "a",
+      "category": "basic",
+      "bestScore": 0,
+      "clear70": false,
+      "clear80": false,
+      "lastUpdated": "2026-03-14T05:52:27.808Z"
+    },
+    {
+      "character": "i",
+      "category": "basic",
+      "bestScore": 0,
+      "clear70": false,
+      "clear80": false,
+      "lastUpdated": "2026-03-14T05:52:27.812Z"
+    },
+    {
+      "character": "u",
+      "category": "basic",
+      "bestScore": 0,
+      "clear70": false,
+      "clear80": false,
+      "lastUpdated": "2026-03-14T05:52:27.812Z"
+    },
+    {
+      "character": "e",
+      "category": "basic",
+      "bestScore": 0,
+      "clear70": false,
+      "clear80": false,
+      "lastUpdated": "2026-03-14T05:52:27.813Z"
+    },
+    {
+      "character": "o",
+      "category": "basic",
+      "bestScore": 0,
+      "clear70": false,
+      "clear80": false,
+      "lastUpdated": "2026-03-14T05:52:27.813Z"
+    },
+    {
+      "character": "ka",
+      "category": "basic",
+      "bestScore": 0,
+      "clear70": false,
+      "clear80": false,
+      "lastUpdated": "2026-03-14T05:52:27.813Z"
+    },
+    {
+      "character": "ki",
+      "category": "basic",
+      "bestScore": 0,
+      "clear70": false,
+      "clear80": false,
+      "lastUpdated": "2026-03-14T05:52:27.813Z"
+    },
+    {
+      "character": "ku",
+      "category": "basic",
+      "bestScore": 0,
+      "clear70": false,
+      "clear80": false,
+      "lastUpdated": "2026-03-14T05:52:27.813Z"
+    },
+    {
+      "character": "ke",
+      "category": "basic",
+      "bestScore": 0,
+      "clear70": false,
+      "clear80": false,
+      "lastUpdated": "2026-03-14T05:52:27.813Z"
+    },
+    {
+      "character": "ko",
+      "category": "basic",
+      "bestScore": 0,
+      "clear70": false,
+      "clear80": false,
+      "lastUpdated": "2026-03-14T05:52:27.813Z"
+    },
+    {
+      "character": "sa",
+      "category": "basic",
+      "bestScore": 0,
+      "clear70": false,
+      "clear80": false,
+      "lastUpdated": "2026-03-14T05:52:27.813Z"
+    },
+    {
+      "character": "shi",
+      "category": "basic",
+      "bestScore": 0,
+      "clear70": false,
+      "clear80": false,
+      "lastUpdated": "2026-03-14T05:52:27.813Z"
+    },
+    {
+      "character": "su",
+      "category": "basic",
+      "bestScore": 0,
+      "clear70": false,
+      "clear80": false,
+      "lastUpdated": "2026-03-14T05:52:27.813Z"
+    },
+    {
+      "character": "se",
+      "category": "basic",
+      "bestScore": 0,
+      "clear70": false,
+      "clear80": false,
+      "lastUpdated": "2026-03-14T05:52:27.813Z"
+    },
+    {
+      "character": "so",
+      "category": "basic",
+      "bestScore": 0,
+      "clear70": false,
+      "clear80": false,
+      "lastUpdated": "2026-03-14T05:52:27.813Z"
+    },
+    {
+      "character": "ta",
+      "category": "basic",
+      "bestScore": 0,
+      "clear70": false,
+      "clear80": false,
+      "lastUpdated": "2026-03-14T05:52:27.813Z"
+    },
+    {
+      "character": "chi",
+      "category": "basic",
+      "bestScore": 0,
+      "clear70": false,
+      "clear80": false,
+      "lastUpdated": "2026-03-14T05:52:27.813Z"
+    },
+    {
+      "character": "tsu",
+      "category": "basic",
+      "bestScore": 0,
+      "clear70": false,
+      "clear80": false,
+      "lastUpdated": "2026-03-14T05:52:27.813Z"
+    },
+    {
+      "character": "te",
+      "category": "basic",
+      "bestScore": 0,
+      "clear70": false,
+      "clear80": false,
+      "lastUpdated": "2026-03-14T05:52:27.813Z"
+    },
+    {
+      "character": "to",
+      "category": "basic",
+      "bestScore": 0,
+      "clear70": false,
+      "clear80": false,
+      "lastUpdated": "2026-03-14T05:52:27.813Z"
+    },
+    {
+      "character": "na",
+      "category": "basic",
+      "bestScore": 0,
+      "clear70": false,
+      "clear80": false,
+      "lastUpdated": "2026-03-14T05:52:27.813Z"
+    },
+    {
+      "character": "ni",
+      "category": "basic",
+      "bestScore": 0,
+      "clear70": false,
+      "clear80": false,
+      "lastUpdated": "2026-03-14T05:52:27.813Z"
+    },
+    {
+      "character": "nu",
+      "category": "basic",
+      "bestScore": 0,
+      "clear70": false,
+      "clear80": false,
+      "lastUpdated": "2026-03-14T05:52:27.813Z"
+    },
+    {
+      "character": "ne",
+      "category": "basic",
+      "bestScore": 0,
+      "clear70": false,
+      "clear80": false,
+      "lastUpdated": "2026-03-14T05:52:27.813Z"
+    },
+    {
+      "character": "no",
+      "category": "basic",
+      "bestScore": 0,
+      "clear70": false,
+      "clear80": false,
+      "lastUpdated": "2026-03-14T05:52:27.813Z"
+    },
+    {
+      "character": "ha",
+      "category": "basic",
+      "bestScore": 0,
+      "clear70": false,
+      "clear80": false,
+      "lastUpdated": "2026-03-14T05:52:27.813Z"
+    },
+    {
+      "character": "hi",
+      "category": "basic",
+      "bestScore": 0,
+      "clear70": false,
+      "clear80": false,
+      "lastUpdated": "2026-03-14T05:52:27.813Z"
+    },
+    {
+      "character": "fu",
+      "category": "basic",
+      "bestScore": 0,
+      "clear70": false,
+      "clear80": false,
+      "lastUpdated": "2026-03-14T05:52:27.813Z"
+    },
+    {
+      "character": "he",
+      "category": "basic",
+      "bestScore": 0,
+      "clear70": false,
+      "clear80": false,
+      "lastUpdated": "2026-03-14T05:52:27.813Z"
+    },
+    {
+      "character": "ho",
+      "category": "basic",
+      "bestScore": 0,
+      "clear70": false,
+      "clear80": false,
+      "lastUpdated": "2026-03-14T05:52:27.813Z"
+    },
+    {
+      "character": "ma",
+      "category": "basic",
+      "bestScore": 0,
+      "clear70": false,
+      "clear80": false,
+      "lastUpdated": "2026-03-14T05:52:27.813Z"
+    },
+    {
+      "character": "mi",
+      "category": "basic",
+      "bestScore": 0,
+      "clear70": false,
+      "clear80": false,
+      "lastUpdated": "2026-03-14T05:52:27.813Z"
+    },
+    {
+      "character": "mu",
+      "category": "basic",
+      "bestScore": 0,
+      "clear70": false,
+      "clear80": false,
+      "lastUpdated": "2026-03-14T05:52:27.813Z"
+    },
+    {
+      "character": "me",
+      "category": "basic",
+      "bestScore": 0,
+      "clear70": false,
+      "clear80": false,
+      "lastUpdated": "2026-03-14T05:52:27.813Z"
+    },
+    {
+      "character": "mo",
+      "category": "basic",
+      "bestScore": 0,
+      "clear70": false,
+      "clear80": false,
+      "lastUpdated": "2026-03-14T05:52:27.813Z"
+    },
+    {
+      "character": "ya",
+      "category": "basic",
+      "bestScore": 0,
+      "clear70": false,
+      "clear80": false,
+      "lastUpdated": "2026-03-14T05:52:27.813Z"
+    },
+    {
+      "character": "yu",
+      "category": "basic",
+      "bestScore": 0,
+      "clear70": false,
+      "clear80": false,
+      "lastUpdated": "2026-03-14T05:52:27.813Z"
+    },
+    {
+      "character": "yo",
+      "category": "basic",
+      "bestScore": 0,
+      "clear70": false,
+      "clear80": false,
+      "lastUpdated": "2026-03-14T05:52:27.813Z"
+    },
+    {
+      "character": "ra",
+      "category": "basic",
+      "bestScore": 0,
+      "clear70": false,
+      "clear80": false,
+      "lastUpdated": "2026-03-14T05:52:27.813Z"
+    },
+    {
+      "character": "ri",
+      "category": "basic",
+      "bestScore": 0,
+      "clear70": false,
+      "clear80": false,
+      "lastUpdated": "2026-03-14T05:52:27.813Z"
+    },
+    {
+      "character": "ru",
+      "category": "basic",
+      "bestScore": 0,
+      "clear70": false,
+      "clear80": false,
+      "lastUpdated": "2026-03-14T05:52:27.813Z"
+    },
+    {
+      "character": "re",
+      "category": "basic",
+      "bestScore": 0,
+      "clear70": false,
+      "clear80": false,
+      "lastUpdated": "2026-03-14T05:52:27.813Z"
+    },
+    {
+      "character": "ro",
+      "category": "basic",
+      "bestScore": 0,
+      "clear70": false,
+      "clear80": false,
+      "lastUpdated": "2026-03-14T05:52:27.813Z"
+    },
+    {
+      "character": "wa",
+      "category": "basic",
+      "bestScore": 0,
+      "clear70": false,
+      "clear80": false,
+      "lastUpdated": "2026-03-14T05:52:27.813Z"
+    },
+    {
+      "character": "wo",
+      "category": "basic",
+      "bestScore": 0,
+      "clear70": false,
+      "clear80": false,
+      "lastUpdated": "2026-03-14T05:52:27.813Z"
+    },
+    {
+      "character": "n",
+      "category": "basic",
+      "bestScore": 0,
+      "clear70": false,
+      "clear80": false,
+      "lastUpdated": "2026-03-14T05:52:27.813Z"
+    },
+    {
+      "character": "ga",
+      "category": "dakuten",
+      "bestScore": 0,
+      "clear70": false,
+      "clear80": false,
+      "lastUpdated": "2026-03-14T05:52:27.813Z"
+    },
+    {
+      "character": "gi",
+      "category": "dakuten",
+      "bestScore": 0,
+      "clear70": false,
+      "clear80": false,
+      "lastUpdated": "2026-03-14T05:52:27.813Z"
+    },
+    {
+      "character": "gu",
+      "category": "dakuten",
+      "bestScore": 0,
+      "clear70": false,
+      "clear80": false,
+      "lastUpdated": "2026-03-14T05:52:27.813Z"
+    },
+    {
+      "character": "ge",
+      "category": "dakuten",
+      "bestScore": 0,
+      "clear70": false,
+      "clear80": false,
+      "lastUpdated": "2026-03-14T05:52:27.813Z"
+    },
+    {
+      "character": "go",
+      "category": "dakuten",
+      "bestScore": 0,
+      "clear70": false,
+      "clear80": false,
+      "lastUpdated": "2026-03-14T05:52:27.813Z"
+    },
+    {
+      "character": "za",
+      "category": "dakuten",
+      "bestScore": 0,
+      "clear70": false,
+      "clear80": false,
+      "lastUpdated": "2026-03-14T05:52:27.813Z"
+    },
+    {
+      "character": "ji",
+      "category": "dakuten",
+      "bestScore": 0,
+      "clear70": false,
+      "clear80": false,
+      "lastUpdated": "2026-03-14T05:52:27.813Z"
+    },
+    {
+      "character": "zu",
+      "category": "dakuten",
+      "bestScore": 0,
+      "clear70": false,
+      "clear80": false,
+      "lastUpdated": "2026-03-14T05:52:27.813Z"
+    },
+    {
+      "character": "ze",
+      "category": "dakuten",
+      "bestScore": 0,
+      "clear70": false,
+      "clear80": false,
+      "lastUpdated": "2026-03-14T05:52:27.813Z"
+    },
+    {
+      "character": "zo",
+      "category": "dakuten",
+      "bestScore": 0,
+      "clear70": false,
+      "clear80": false,
+      "lastUpdated": "2026-03-14T05:52:27.814Z"
+    },
+    {
+      "character": "da",
+      "category": "dakuten",
+      "bestScore": 0,
+      "clear70": false,
+      "clear80": false,
+      "lastUpdated": "2026-03-14T05:52:27.814Z"
+    },
+    {
+      "character": "ji",
+      "category": "dakuten",
+      "bestScore": 0,
+      "clear70": false,
+      "clear80": false,
+      "lastUpdated": "2026-03-14T05:52:27.814Z"
+    },
+    {
+      "character": "zu",
+      "category": "dakuten",
+      "bestScore": 0,
+      "clear70": false,
+      "clear80": false,
+      "lastUpdated": "2026-03-14T05:52:27.814Z"
+    },
+    {
+      "character": "de",
+      "category": "dakuten",
+      "bestScore": 0,
+      "clear70": false,
+      "clear80": false,
+      "lastUpdated": "2026-03-14T05:52:27.814Z"
+    },
+    {
+      "character": "do",
+      "category": "dakuten",
+      "bestScore": 0,
+      "clear70": false,
+      "clear80": false,
+      "lastUpdated": "2026-03-14T05:52:27.814Z"
+    },
+    {
+      "character": "ba",
+      "category": "dakuten",
+      "bestScore": 0,
+      "clear70": false,
+      "clear80": false,
+      "lastUpdated": "2026-03-14T05:52:27.814Z"
+    },
+    {
+      "character": "bi",
+      "category": "dakuten",
+      "bestScore": 0,
+      "clear70": false,
+      "clear80": false,
+      "lastUpdated": "2026-03-14T05:52:27.814Z"
+    },
+    {
+      "character": "bu",
+      "category": "dakuten",
+      "bestScore": 0,
+      "clear70": false,
+      "clear80": false,
+      "lastUpdated": "2026-03-14T05:52:27.814Z"
+    },
+    {
+      "character": "be",
+      "category": "dakuten",
+      "bestScore": 0,
+      "clear70": false,
+      "clear80": false,
+      "lastUpdated": "2026-03-14T05:52:27.814Z"
+    },
+    {
+      "character": "bo",
+      "category": "dakuten",
+      "bestScore": 0,
+      "clear70": false,
+      "clear80": false,
+      "lastUpdated": "2026-03-14T05:52:27.814Z"
+    },
+    {
+      "character": "pa",
+      "category": "dakuten",
+      "bestScore": 0,
+      "clear70": false,
+      "clear80": false,
+      "lastUpdated": "2026-03-14T05:52:27.814Z"
+    },
+    {
+      "character": "pi",
+      "category": "dakuten",
+      "bestScore": 0,
+      "clear70": false,
+      "clear80": false,
+      "lastUpdated": "2026-03-14T05:52:27.814Z"
+    },
+    {
+      "character": "pu",
+      "category": "dakuten",
+      "bestScore": 0,
+      "clear70": false,
+      "clear80": false,
+      "lastUpdated": "2026-03-14T05:52:27.814Z"
+    },
+    {
+      "character": "pe",
+      "category": "dakuten",
+      "bestScore": 0,
+      "clear70": false,
+      "clear80": false,
+      "lastUpdated": "2026-03-14T05:52:27.814Z"
+    },
+    {
+      "character": "po",
+      "category": "dakuten",
+      "bestScore": 0,
+      "clear70": false,
+      "clear80": false,
+      "lastUpdated": "2026-03-14T05:52:27.814Z"
+    },
+    {
+      "character": "kya",
+      "category": "yoon",
+      "bestScore": 0,
+      "clear70": false,
+      "clear80": false,
+      "lastUpdated": "2026-03-14T05:52:27.814Z"
+    },
+    {
+      "character": "kyu",
+      "category": "yoon",
+      "bestScore": 0,
+      "clear70": false,
+      "clear80": false,
+      "lastUpdated": "2026-03-14T05:52:27.814Z"
+    },
+    {
+      "character": "kyo",
+      "category": "yoon",
+      "bestScore": 0,
+      "clear70": false,
+      "clear80": false,
+      "lastUpdated": "2026-03-14T05:52:27.814Z"
+    },
+    {
+      "character": "sha",
+      "category": "yoon",
+      "bestScore": 0,
+      "clear70": false,
+      "clear80": false,
+      "lastUpdated": "2026-03-14T05:52:27.814Z"
+    },
+    {
+      "character": "shu",
+      "category": "yoon",
+      "bestScore": 0,
+      "clear70": false,
+      "clear80": false,
+      "lastUpdated": "2026-03-14T05:52:27.814Z"
+    },
+    {
+      "character": "sho",
+      "category": "yoon",
+      "bestScore": 0,
+      "clear70": false,
+      "clear80": false,
+      "lastUpdated": "2026-03-14T05:52:27.814Z"
+    },
+    {
+      "character": "cha",
+      "category": "yoon",
+      "bestScore": 0,
+      "clear70": false,
+      "clear80": false,
+      "lastUpdated": "2026-03-14T05:52:27.814Z"
+    },
+    {
+      "character": "chu",
+      "category": "yoon",
+      "bestScore": 0,
+      "clear70": false,
+      "clear80": false,
+      "lastUpdated": "2026-03-14T05:52:27.814Z"
+    },
+    {
+      "character": "cho",
+      "category": "yoon",
+      "bestScore": 0,
+      "clear70": false,
+      "clear80": false,
+      "lastUpdated": "2026-03-14T05:52:27.814Z"
+    },
+    {
+      "character": "nya",
+      "category": "yoon",
+      "bestScore": 0,
+      "clear70": false,
+      "clear80": false,
+      "lastUpdated": "2026-03-14T05:52:27.814Z"
+    },
+    {
+      "character": "nyu",
+      "category": "yoon",
+      "bestScore": 0,
+      "clear70": false,
+      "clear80": false,
+      "lastUpdated": "2026-03-14T05:52:27.814Z"
+    },
+    {
+      "character": "nyo",
+      "category": "yoon",
+      "bestScore": 0,
+      "clear70": false,
+      "clear80": false,
+      "lastUpdated": "2026-03-14T05:52:27.814Z"
+    },
+    {
+      "character": "hya",
+      "category": "yoon",
+      "bestScore": 0,
+      "clear70": false,
+      "clear80": false,
+      "lastUpdated": "2026-03-14T05:52:27.814Z"
+    },
+    {
+      "character": "hyu",
+      "category": "yoon",
+      "bestScore": 0,
+      "clear70": false,
+      "clear80": false,
+      "lastUpdated": "2026-03-14T05:52:27.814Z"
+    },
+    {
+      "character": "hyo",
+      "category": "yoon",
+      "bestScore": 0,
+      "clear70": false,
+      "clear80": false,
+      "lastUpdated": "2026-03-14T05:52:27.814Z"
+    },
+    {
+      "character": "mya",
+      "category": "yoon",
+      "bestScore": 0,
+      "clear70": false,
+      "clear80": false,
+      "lastUpdated": "2026-03-14T05:52:27.814Z"
+    },
+    {
+      "character": "myu",
+      "category": "yoon",
+      "bestScore": 0,
+      "clear70": false,
+      "clear80": false,
+      "lastUpdated": "2026-03-14T05:52:27.814Z"
+    },
+    {
+      "character": "myo",
+      "category": "yoon",
+      "bestScore": 0,
+      "clear70": false,
+      "clear80": false,
+      "lastUpdated": "2026-03-14T05:52:27.814Z"
+    },
+    {
+      "character": "rya",
+      "category": "yoon",
+      "bestScore": 0,
+      "clear70": false,
+      "clear80": false,
+      "lastUpdated": "2026-03-14T05:52:27.814Z"
+    },
+    {
+      "character": "ryu",
+      "category": "yoon",
+      "bestScore": 0,
+      "clear70": false,
+      "clear80": false,
+      "lastUpdated": "2026-03-14T05:52:27.814Z"
+    },
+    {
+      "character": "ryo",
+      "category": "yoon",
+      "bestScore": 0,
+      "clear70": false,
+      "clear80": false,
+      "lastUpdated": "2026-03-14T05:52:27.814Z"
+    },
+    {
+      "character": "gya",
+      "category": "yoon",
+      "bestScore": 0,
+      "clear70": false,
+      "clear80": false,
+      "lastUpdated": "2026-03-14T05:52:27.814Z"
+    },
+    {
+      "character": "gyu",
+      "category": "yoon",
+      "bestScore": 0,
+      "clear70": false,
+      "clear80": false,
+      "lastUpdated": "2026-03-14T05:52:27.814Z"
+    },
+    {
+      "character": "gyo",
+      "category": "yoon",
+      "bestScore": 0,
+      "clear70": false,
+      "clear80": false,
+      "lastUpdated": "2026-03-14T05:52:27.814Z"
+    },
+    {
+      "character": "ja",
+      "category": "yoon",
+      "bestScore": 0,
+      "clear70": false,
+      "clear80": false,
+      "lastUpdated": "2026-03-14T05:52:27.814Z"
+    },
+    {
+      "character": "ju",
+      "category": "yoon",
+      "bestScore": 0,
+      "clear70": false,
+      "clear80": false,
+      "lastUpdated": "2026-03-14T05:52:27.814Z"
+    },
+    {
+      "character": "jo",
+      "category": "yoon",
+      "bestScore": 0,
+      "clear70": false,
+      "clear80": false,
+      "lastUpdated": "2026-03-14T05:52:27.814Z"
+    },
+    {
+      "character": "bya",
+      "category": "yoon",
+      "bestScore": 0,
+      "clear70": false,
+      "clear80": false,
+      "lastUpdated": "2026-03-14T05:52:27.814Z"
+    },
+    {
+      "character": "byu",
+      "category": "yoon",
+      "bestScore": 0,
+      "clear70": false,
+      "clear80": false,
+      "lastUpdated": "2026-03-14T05:52:27.814Z"
+    },
+    {
+      "character": "byo",
+      "category": "yoon",
+      "bestScore": 0,
+      "clear70": false,
+      "clear80": false,
+      "lastUpdated": "2026-03-14T05:52:27.814Z"
+    },
+    {
+      "character": "pya",
+      "category": "yoon",
+      "bestScore": 0,
+      "clear70": false,
+      "clear80": false,
+      "lastUpdated": "2026-03-14T05:52:27.814Z"
+    },
+    {
+      "character": "pyu",
+      "category": "yoon",
+      "bestScore": 0,
+      "clear70": false,
+      "clear80": false,
+      "lastUpdated": "2026-03-14T05:52:27.814Z"
+    },
+    {
+      "character": "pyo",
+      "category": "yoon",
+      "bestScore": 0,
+      "clear70": false,
+      "clear80": false,
+      "lastUpdated": "2026-03-14T05:52:27.814Z"
+    }
+  ]
+}

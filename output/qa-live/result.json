@@ -1,8 +1,8 @@
 {
-  "timestamp": "2026-03-10T05:35:23.935Z",
+  "timestamp": "2026-03-14T06:08:18.239Z",
   "practiceVerdict": "判定中です...",
-  "testVerdict": "どれか1枠が0点です (0 点) / OCR: n, -",
-  "historyCount": 2,
+  "testVerdict": "判定中です...",
+  "historyCount": 0,
   "downloadCount": 2,
   "severeErrors": [],
   "sampleLogs": [
@@ -25,26 +25,6 @@
     {
       "type": "log",
       "text": "[OCR][Test] start {kind: multi, boxIndex: 1, canvas: Object}"
-    },
-    {
-      "type": "log",
-      "text": "[OCR][Test] done {kind: multi, boxIndex: 1, letter: , confidence: 0, alphaLength: 0}"
-    },
-    {
-      "type": "log",
-      "text": "[OCR][Test] done {kind: multi, boxIndex: 0, letter: n, confidence: 94.4713363647461, alphaLength: 2}"
-    },
-    {
-      "type": "log",
-      "text": "[OCR][Test] grading-input {kind: multi, ocrPerBox: Array(2)}"
-    },
-    {
-      "type": "log",
-      "text": "[OCR][Practice] done {kind: single, letter: , confidence: 0, alphaLength: 0, source: none}"
-    },
-    {
-      "type": "log",
-      "text": "[OCR][Practice] grading-input {kind: single, letter: , confidence: 0, alphaLength: 0, source: none}"
     }
   ]
 }
