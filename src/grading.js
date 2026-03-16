@@ -29,7 +29,8 @@
   // Fade / Blind 騾包ｽｨ邵ｺ・ｮ闖ｴ蜥ｲ・ｽ・ｮ郢ｧ・ｲ郢晢ｽｼ郢晏現繝ｻ雎・ｽ｣髫穂ｸ槫密郢昜ｻ｣ﾎ帷ｹ晢ｽ｡郢晢ｽｼ郢ｧ・ｿ
   const CENTER_GATE_X_RATIO = 0.35; // 邵ｺ阮呻ｽ瑚脂・･闕ｳ雍具ｽｸ・ｭ陟｢繝ｻ窶ｲ鬮ｮ・｢郢ｧ蠕娯ｻ邵ｺ繝ｻ・檎ｸｺ・ｰ闖ｴ蜥ｲ・ｽ・ｮ騾ｧ繝ｻ竊・NG
   const CENTER_GATE_Y_RATIO = 0.25;
-  const CENTER_SOFT_X_RATIO = 0.12; // 邵ｺ阮吶・驕ｽ繝ｻ蟲・ｹｧ螳夲ｽｶ繝ｻ竏ｴ邵ｺ貅ｷ繝ｻ邵ｺ・ｰ邵ｺ隨ｬ・ｸ蟶ｷ縺・  const CENTER_SOFT_Y_RATIO = 0.10;
+  const CENTER_SOFT_X_RATIO = 0.12; // soft threshold before horizontal center penalty
+  const CENTER_SOFT_Y_RATIO = 0.10; // soft threshold before vertical center penalty
 
   /** 陋ｻ・･邵ｺ・ｮ隴√・・ｭ蜉ｱ竊堤ｸｺ蜉ｱ窶ｻ髫ｱ・ｭ邵ｺ・ｾ郢ｧ蠕娯螺郢ｧ繝ｻ0霓､・ｹ郢ｧ螳夲ｽｶ繝ｻ竏ｴ郢ｧ蟲ｨ・檎ｸｺ・ｪ邵ｺ繝ｻ・ｼ螢ｽ・ｷ・ｷ陷ｷ蠕鯉ｼ郢ｧ繝ｻ笘・ｸｺ繝ｻ譫夊氛蜉ｱ繝ｻ陝・ｽｾ陟｢諛・ｽ｡・ｨ */
   const CONFUSABLES = {
