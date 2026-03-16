@@ -17,6 +17,7 @@
   let lastTestCheckAt = 0;
   let lastTestSaveSig = '';
   let lastTestSaveAt = 0;
+  let testCheckWatchdogId = null;
 
   /**
    * Tesseract.js 縺ｮ邨先棡縺九ｉ縲檎函繝・く繧ｹ繝医阪・譁・ｭ励・繧｢繝ｫ繝輔ぃ繝吶ャ繝亥呵｣懊阪後◎縺ｮ菫｡鬆ｼ蠎ｦ縲阪ｒ蜿悶ｊ蜃ｺ縺・   */
@@ -304,6 +305,7 @@
   }
 
   function showCurrentQuestion() {
+    resetTestCheckUi();
     const q = questionList[currentIndex];
     if (!q) return;
 
@@ -357,6 +359,7 @@
   }
 
   function applyTestCheckResult(result, strokesData, templateInfo, q) {
+    clearTestCheckWatchdog();
     testCheckInFlight = false;
     const checkBtn = document.getElementById('test-check-btn');
     if (checkBtn) checkBtn.disabled = false;
@@ -429,6 +432,7 @@
     if (checkBtn) checkBtn.disabled = true;
     const nextBtn = document.getElementById('test-next-btn');
     if (nextBtn) nextBtn.disabled = true;
+    armTestCheckWatchdog();
 
     const q = questionList[currentIndex];
     if (!q || typeof Draw === 'undefined' || typeof Grading === 'undefined') {
@@ -560,6 +564,34 @@
     }
     showCurrentQuestion();
     document.getElementById('test-next-btn').classList.add('hidden');
+  }
+
+  function clearTestCheckWatchdog() {
+    if (testCheckWatchdogId != null) {
+      clearTimeout(testCheckWatchdogId);
+      testCheckWatchdogId = null;
+    }
+  }
+
+  function resetTestCheckUi() {
+    clearTestCheckWatchdog();
+    testCheckInFlight = false;
+    const checkBtn = document.getElementById('test-check-btn');
+    const nextBtn = document.getElementById('test-next-btn');
+    if (checkBtn) checkBtn.disabled = false;
+    if (nextBtn) nextBtn.disabled = false;
+  }
+
+  function armTestCheckWatchdog() {
+    clearTestCheckWatchdog();
+    testCheckWatchdogId = setTimeout(function () {
+      if (!testCheckInFlight) return;
+      resetTestCheckUi();
+      showError('test-error', '判定が途中で止まったため、もう一度押せるように戻しました');
+      if (typeof console !== 'undefined') {
+        console.warn('[Test] check watchdog reset');
+      }
+    }, 10000);
   }
 
   function showResult() {

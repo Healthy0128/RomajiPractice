@@ -17,6 +17,7 @@
   let lastPracticeSaveAt = 0;
   // Incremented per check/navigation to ignore stale async OCR results safely.
   let practiceCheckSeq = 0;
+  let practiceCheckWatchdogId = null;
 
   // 文字ごとの達成状況（localStorage 保存用）
   // progressMap: { [kana: string]: { bestScore: number, lastScore: number, updatedAt: number } }
@@ -355,6 +356,7 @@
   }
 
   function handleKanaClick(kana, grid) {
+    resetPracticeCheckUi();
     currentKana = kana;
     if (grid) {
       grid.querySelectorAll('.char-btn').forEach(b => b.classList.remove('active'));
@@ -420,6 +422,7 @@
     const diffEl = document.getElementById('difficulty');
     if (diffEl) {
       diffEl.addEventListener('change', () => {
+        resetPracticeCheckUi();
         Draw.resetFade();
         syncTemplate();
         Draw.clearFeedback();
@@ -483,8 +486,10 @@
     const nextBtn = document.getElementById('btn-next');
     if (checkBtn) checkBtn.disabled = true;
     if (nextBtn) nextBtn.disabled = true;
+    armPracticeCheckWatchdog(checkSeq);
 
     function finishCheck() {
+      clearPracticeCheckWatchdog();
       practiceCheckInFlight = false;
       if (checkBtn) checkBtn.disabled = false;
       if (nextBtn) nextBtn.disabled = false;
@@ -720,9 +725,38 @@
     applyResult(result);
   }
 
+  function clearPracticeCheckWatchdog() {
+    if (practiceCheckWatchdogId != null) {
+      clearTimeout(practiceCheckWatchdogId);
+      practiceCheckWatchdogId = null;
+    }
+  }
+
+  function resetPracticeCheckUi() {
+    clearPracticeCheckWatchdog();
+    practiceCheckInFlight = false;
+    const checkBtn = document.getElementById('btn-check');
+    const nextBtn = document.getElementById('btn-next');
+    if (checkBtn) checkBtn.disabled = false;
+    if (nextBtn) nextBtn.disabled = false;
+  }
+
+  function armPracticeCheckWatchdog(checkSeq) {
+    clearPracticeCheckWatchdog();
+    practiceCheckWatchdogId = setTimeout(function () {
+      if (!practiceCheckInFlight || checkSeq !== practiceCheckSeq) return;
+      resetPracticeCheckUi();
+      showError('practice-error', '判定が途中で止まったため、もう一度押せるように戻しました');
+      if (typeof console !== 'undefined') {
+        console.warn('[Practice] check watchdog reset', { checkSeq: checkSeq });
+      }
+    }, 10000);
+  }
+
   function doNext() {
     if (practiceCheckInFlight) return;
     practiceCheckSeq++;
+    resetPracticeCheckUi();
     const list = getKanaByCategory(document.getElementById('char-category')?.value || 'basic');
     const idx = list.findIndex(d => d.kana === currentKana);
     const next = list[(idx + 1) % list.length];
@@ -857,5 +891,3 @@
     getCurrentKana
   };
 })(typeof window !== 'undefined' ? window : this);
-
-

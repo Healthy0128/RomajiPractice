@@ -8,3 +8,4 @@
 
 - 2026-03-13: Andikaへ切替。4線ガイドのベースラインを薄い赤に変更し、uppercase/ascender/x-height/descenderごとに文字帯を分けてテンプレート描画位置を調整。qa_live_check で既存導線再確認予定。
 - 2026-03-14: `C:/Users/User/Documents/Codex/handwritingapp/packages/handwriting-core` を参照。`guide.js` の4線比率 `0.18/0.42/0.68/0.88` に合わせてテンプレートを補正し、`scoring.js` の方針を参考に shape/distribution を少し重く、OCR は形が合う時はヒント寄りに緩和。
+- 2026-03-16: Fade 時に判定ボタンが無反応に見える不具合を調査。Practice/Test ともに判定中フラグの watchdog を追加し、難易度変更・問題切替時に stale な disabled/inFlight を解除する保険を入れた。
